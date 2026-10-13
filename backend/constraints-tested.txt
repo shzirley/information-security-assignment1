@@ -1,0 +1,11 @@
+# Direct dependency versions used for verification; install with -r requirements.txt -c constraints-tested.txt.
+fastapi==0.143.0
+SQLAlchemy==2.1.4
+PyMySQL==1.2.3
+pycryptodome==3.24.1
+argon2-cffi==25.1.0
+python-multipart==0.0.32
+python-dotenv==1.2.4
+httpx==0.28.1
+pytest==9.1.1
+uvicorn==0.54.0

@@ -9,3 +9,8 @@ frontend/test-results/
 frontend/tsconfig.tsbuildinfo
 frontend/next-env.d.ts
 *.log
+backend/.venv/
+backend/data/
+__pycache__/
+.pytest_cache/
+*.pyc

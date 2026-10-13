@@ -74,8 +74,14 @@ addEventListener('message', async function (event) {
     case 'CLIENT_CLOSED': {
       activeClientIds.delete(clientId)
 
-      // Keep registration across full reloads; unregistering races the next
-      // client's update(). With no active clients, the fetch handler bypasses.
+      const remainingClients = allClients.filter((client) => {
+        return client.id !== clientId
+      })
+
+      // Unregister itself when there are no more clients
+      if (remainingClients.length === 0) {
+        self.registration.unregister()
+      }
 
       break
     }
