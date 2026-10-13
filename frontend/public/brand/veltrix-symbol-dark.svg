@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <title>VELTRIX monochrome dark symbol</title>
+  <defs><mask id="hole"><rect width="200" height="200" fill="#fff"/><path d="M151 61a10 10 0 0 0-7 17l-4 19q0 3 3 3h16q3 0 3-3l-4-19a10 10 0 0 0-7-17Z" fill="#000"/></mask></defs>
+  <path d="m8 48 65 129c12 24 32 27 48 3l54-80-34 2-35 41-28-34Z" fill="#0B132B"/>
+  <path d="M26 7C12 0 4 10 4 29c0 17 5 30 13 46l22 40c20 18 42 20 55 1V70c0-17-8-27-22-35Z" fill="#0B132B"/>
+  <path d="m186 4-59 32c-12 7-16 17-16 35v75l67-39c12-7 16-16 16-31V11c0-7-3-10-8-7Z" fill="#0B132B" mask="url(#hole)"/>
+</svg>

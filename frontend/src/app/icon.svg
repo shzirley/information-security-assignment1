@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="52" fill="#0B132B"/>
+  <defs>
+    <linearGradient id="base" x1="35" y1="85" x2="122" y2="192" gradientUnits="userSpaceOnUse"><stop stop-color="#2563EB"/><stop offset=".48" stop-color="#4F46E5"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+    <linearGradient id="left" x1="22" y1="9" x2="81" y2="131" gradientUnits="userSpaceOnUse"><stop stop-color="#3999FF"/><stop offset=".65" stop-color="#2563EB"/><stop offset="1" stop-color="#3941ED"/></linearGradient>
+    <linearGradient id="right" x1="181" y1="9" x2="114" y2="146" gradientUnits="userSpaceOnUse"><stop stop-color="#22D3EE"/><stop offset=".54" stop-color="#54BDFF"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+    <mask id="keyhole"><rect width="200" height="200" fill="#fff"/><path d="M151 61a10 10 0 0 0-7 17l-4 19q0 3 3 3h16q3 0 3-3l-4-19a10 10 0 0 0-7-17Z" fill="#000"/></mask>
+  </defs>
+  <g transform="translate(38 36) scale(.9)">
+    <path d="m8 48 65 129c12 24 32 27 48 3l54-80-34 2-35 41-28-34Z" fill="url(#base)"/>
+    <path d="M26 7C12 0 4 10 4 29c0 17 5 30 13 46l22 40c20 18 42 20 55 1V70c0-17-8-27-22-35Z" fill="url(#left)"/>
+    <path d="m94 116 12 27 50-29c-6 34-23 47-39 32-11-10-18-22-23-30Z" fill="#1839CB"/>
+    <path d="m186 4-59 32c-12 7-16 17-16 35v75l67-39c12-7 16-16 16-31V11c0-7-3-10-8-7Z" fill="url(#right)" mask="url(#keyhole)"/>
+  </g>
+</svg>
