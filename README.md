@@ -1,96 +1,56 @@
-# VELTRIX — Front-end + Back-end
+# VELTRIX BankKYC
 
-Proyek tugas keamanan informasi: vault data pribadi/file dan perbandingan AES, RC4, serta DES. Front-end Next.js dari proyek awal sekarang tersambung ke **FastAPI + SQLAlchemy**, dengan enkripsi nyata dan database persisten.
+Proyek akademik Information Security: simulasi onboarding rekening bank dengan profil fiktif, scan identitas dummy, dokumen administrasi, dan video sintetis. Unit kerja adalah pengajuan KYC, dengan akses pemohon, reviewer metadata, admin penugasan, dan evaluator lab.
 
-## Menjalankan di Windows
+**Status saat ini:** frontend BankKYC berjalan dengan API mock. Backend FastAPI lama tetap ada, tetapi masih menggunakan alur vault dan belum kompatibel dengan kontrak BankKYC. Enkripsi, session, dan benchmark nyata pada backend lama tidak berarti pipeline dan aturan BankKYC baru sudah terimplementasi. Gunakan data sintetis saja.
 
-Ekstrak ZIP. Buka terminal di folder proyek. Perlu Python 3.11+ dan Node.js 22+.
+## Jalankan frontend
 
-**Terminal 1 — back-end:**
-
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe setup_env.py
-.\.venv\Scripts\python.exe -m uvicorn app.server:app --host 127.0.0.1 --port 8000 --reload
-```
-
-**Terminal 2 — front-end, mulai dari folder proyek:**
+Perlu Node.js 22+ dan npm. Dari folder proyek:
 
 ```powershell
 cd frontend
 npm.cmd ci
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm.cmd run dev
 ```
 
-Buka **http://127.0.0.1:3000/register**, buat akun baru, lalu login. Mode live tidak menyediakan akun/password demo. Upload file atau buat profil untuk mengisi dashboard dan menjalankan Lab.
+Jika `.env.local` sudah ada, cukup atur `NEXT_PUBLIC_API_MODE=mock`; jangan menimpa konfigurasi lain tanpa memeriksanya. Buka http://127.0.0.1:3000. Di Linux/macOS gunakan `npm`, dan `cp .env.example .env.local`.
 
-`setup_env.py` membuat kunci rahasia lokal di `backend/.env` dan menyiapkan `frontend/.env.local` dengan mode `live`. File konfigurasi yang sudah ada tidak ditimpa. Jika sebelumnya menggunakan mock, ubah `NEXT_PUBLIC_API_MODE=live` di `.env.local` lalu restart Next.js.
+Login memakai username dan password, tanpa pemilih akun latihan atau peran. Untuk pengembangan dalam mode mock: pemohon `demo_user`, reviewer `reviewer_demo`, admin `admin_demo`, evaluator `evaluator_demo`; semua password mock `veltrix123`. Akun fixture ini hanya untuk API mock. Peran berasal dari respons login, bukan pilihan pengguna. Akun baru mendapat peran pemohon dan daftar kosong. Semua perubahan mock disimpan di memori browser dan hilang saat reload.
 
-## Menjalankan di Linux/macOS
+## Dokumentasi terbaru
 
-Terminal back-end:
+- [PRD produk BankKYC v2.1](VELTRIX_BankKYC_PRD.md): skenario, assignment, kebijakan produk, dan keputusan dosen yang masih terbuka.
+- [PRD frontend BankKYC v1.2](VELTRIX_BankKYC_FE_PRD.md): user flow, layar, kontrak API, GSM, bahasa antarmuka, validasi, acceptance criteria, batas implementasi, dan backlog.
+- [PRD backend BankKYC v1.0](VELTRIX_BankKYC_BE_PRD.md): handoff implementasi FastAPI/MySQL, RBAC + ownership/assignment, state machine, enkripsi, kontrak FE, migrasi dan acceptance tests.
+- [GSM VELTRIX](VELTRIX_GSM_v0.1.md): logo, warna, tipografi, dan aset merek yang dipertahankan.
+- [Panduan frontend](frontend/README.md), [arah desain](frontend/DESIGN.md), [referensi komponen](frontend/REFERENCES.md), [QA antislop](frontend/ANTISLOP_QA.md).
+- [Backend legacy](backend/README.md): implementasi vault terdahulu dan konfigurasi MySQL. Belum merupakan API BankKYC baru.
 
-```bash
-cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python setup_env.py
-.venv/bin/python -m uvicorn app.server:app --host 127.0.0.1 --port 8000 --reload
-```
+Dokumen dan screenshot alur vault yang sudah tergantikan dihapus dari direktori aktif; riwayat yang sudah dikomit tetap tersedia di Git. Aset GSM dan kode backend lama dipertahankan sebagai acuan merek dan migrasi.
 
-Terminal front-end:
+## Fitur FE BankKYC
 
-```bash
-cd frontend
-npm ci
-npm run dev
-```
+Landing dengan headline berganti tanpa tombol jeda/tulisan tambahan dan susunan bukti saat scroll yang mengikuti reduced motion; login username/password; shell per role; dashboard dan pencarian/filter kasus; wizard lima langkah; validasi dummy/ukuran/format; riwayat versi bukti; preview/download pemilik; submit/revisi/keputusan/penarikan sesuai status; antrean metadata reviewer; penugasan admin; lab fixture, riwayat, dan CSV **simulasi**; tema terang/gelap dan mobile.
 
-## Fitur yang tersambung
+Target stack tetap **Next.js + FastAPI + MySQL**. Pipeline operasional yang diusulkan sementara RC4 → DES-CBC → AES-256-GCM, hanya ciphertext final, satu retrieval. Interpretasi berlapis versus tiga representasi perlu konfirmasi dosen (D-01). Reviewer tetap strict owner-only metadata, menunggu keputusan D-02. DES/RC4 hanya untuk pembelajaran dan tidak diposisikan sebagai perlindungan data nyata.
 
-- Register, login, logout, sesi cookie HttpOnly, Argon2id, proteksi CSRF, dan pembatasan percobaan login.
-- Dashboard menghitung file, ukuran asli, ukuran ciphertext, dan status profil dari database.
-- Upload, cari/filter, detail, download dan hapus file dengan pemeriksaan pemilik.
-- Setiap file/profil memiliki AES-256-CBC, RC4, dan DES-CBC; integritas diperiksa sebelum dekripsi.
-- Nama file dan konten profil juga terenkripsi saat disimpan. Payload asli tidak disimpan ke disk oleh back-end.
-- Profil: buat, edit, tampilkan dengan pilihan algoritma, dan hapus.
-- Benchmark nyata: 10–30 pengulangan, 2 warm-up per algoritma, mean/median/sample SD, pemeriksaan round trip, histori persisten, dan CSV.
-- Uji download berulang menggunakan pengukuran browser dan ekspor CSV.
-
-## Database
-
-**Default SQLite** langsung berjalan tanpa instalasi database tambahan. Database dibuat di `backend/data/veltrix.db`. **MySQL** didukung melalui konfigurasi `DATABASE_URL`; petunjuk ada di [backend/README.md](backend/README.md). Tabel dibuat otomatis saat server dimulai.
-
-Jangan menghapus/mengganti `VELTRIX_MASTER_KEY` setelah menyimpan data. Kunci lama diperlukan untuk dekripsi dan harus dicadangkan bersama database. ZIP ini tidak menyertakan kunci rahasia, akun uji, database, atau `node_modules`.
-
-## Pengujian
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m pytest -q
-```
+## Pengujian frontend
 
 ```powershell
 cd frontend
 npm.cmd run build
 npm.cmd run typecheck
+npm.cmd run test:e2e
 ```
 
-Pengujian integrasi melalui kedua server yang sudah berjalan:
+Build untuk tes harus dalam mode mock. Playwright memakai Microsoft Edge terpasang dan server production terisolasi di port 3100. Laporan HTML ada di `frontend/playwright-report/`; screenshot baru memakai prefix `bankkyc-` di `frontend/artifacts/`. Lihat laporan QA untuk hasil aktual dan batas coverage.
 
-```powershell
-cd backend
-.\.venv\Scripts\python.exe scripts/smoke_live.py --large-upload
-```
+Tes backend lama dapat dijalankan dari virtualenv Python sesuai requirements di `backend/`. Tes tersebut tidak mencakup state machine/role/pipeline BankKYC baru. Hindari menjalankan `backend/setup_env.py` untuk demo FE baru karena script legacy dapat membuat `.env.local` dalam mode live.
 
-Pengujian ini membuat akun dummy baru di database pengujian/lokal. Rincian hasil dan batas verifikasi ada di [BACKEND_VERIFICATION.md](BACKEND_VERIFICATION.md).
+## Yang masih perlu dikerjakan
 
-API interaktif: **http://127.0.0.1:8000/docs**. Kontrak front-end tetap di `frontend/src/lib/api.ts` dan `contracts.ts`.
+API pengajuan/role/assignment baru; migrasi dan pengujian MySQL; pipeline/envelope/key management baru; draf persisten; validasi konten mendalam; atomic write; pengujian ownership/integritas/tampering server; benchmark nyata dan interpretasi; retention/deletion dan analisis regulasi yang diverifikasi tim. Daftar rinci terdapat dalam PRD FE.
 
-## Konteks tugas
-
-RC4 dan DES tetap tersedia untuk kebutuhan perbandingan akademik. Aplikasi adalah MVP tugas, dengan enkripsi di sisi server; gunakan data dummy. File upload dibatasi berdasarkan ekstensi/kategori dan ukuran; tidak mencakup antivirus atau validasi mendalam format file.
-
-Dokumen PRD/blueprint dan aset desain asli tetap disertakan. Dokumen tersebut mencatat rencana awal; README dan kode back-end menjelaskan implementasi yang tersedia saat ini. Mode mock masih dapat digunakan dengan `NEXT_PUBLIC_API_MODE=mock`, tetapi hasilnya tetap simulasi.
+Submission tugas memerlukan semua kode di GitHub dengan commit bermakna, laporan maksimum dua halaman A4, serta link dan screenshot percakapan AI aktual. Angka mock dan screenshot FE bukan bukti eksperimen kriptografi atau pengganti screenshot percakapan.

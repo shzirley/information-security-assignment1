@@ -1,6 +1,10 @@
 # VELTRIX back-end
 
-FastAPI + SQLAlchemy + PyCryptodome. Semua endpoint yang dipakai `frontend/src/lib/api.ts` diimplementasikan di bawah `/api/v1`. Tidak perlu mengganti struktur halaman atau kontrak front-end.
+> Status 27 Oktober 2026: backend ini adalah implementasi **vault legacy**. Frontend terbaru memakai skenario BankKYC dan API mock. Role/session response, endpoint pengajuan/assignment, pipeline AES-GCM, dan lab fixture BankKYC belum diimplementasikan di sini. Kontrak terbaru ada di `../VELTRIX_BankKYC_FE_PRD.md`. Pernyataan kompatibilitas frontend di bawah berlaku untuk versi vault terdahulu. `setup_env.py` dapat membuat frontend mode live; gunakan mode mock untuk FE BankKYC sampai migrasi selesai.
+
+**Panduan pengerjaan backend baru:** [VELTRIX BankKYC BE PRD](../VELTRIX_BankKYC_BE_PRD.md). Dokumen tersebut menetapkan MySQL, aturan role/owner/assignment/status, endpoint yang cocok dengan FE, pipeline sementara, key handling, benchmark nyata, migrasi dan kriteria lulus. Ikuti itu untuk handoff BankKYC; bagian di bawah mendokumentasikan implementasi vault yang sudah ada.
+
+Implementasi vault lama menggunakan FastAPI + SQLAlchemy + PyCryptodome dan prefix `/api/v1`. Endpoint-nya cocok dengan frontend vault terdahulu. Frontend BankKYC baru memerlukan kontrak pengajuan/peran yang berbeda dan belum dapat dihubungkan hanya dengan mengganti env ke live.
 
 ## Struktur
 
