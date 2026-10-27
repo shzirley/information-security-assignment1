@@ -1,8 +1,12 @@
 # VELTRIX BankKYC: Backend PRD dan Panduan Handoff
 
-**Versi:** 1.0 · **Tanggal:** 27 Oktober 2026 · **Target:** teman pengembang backend dan reviewer integrasi FE–BE.
+**Versi:** 1.1 · **Tanggal:** 27 Oktober 2026 · **Target:** teman pengembang backend dan reviewer integrasi FE–BE.
 
-**Status dokumen:** spesifikasi implementasi. Dokumen ini tidak menyatakan backend BankKYC sudah dibuat. Frontend baru berjalan dengan API mock; backend FastAPI di repo masih mengikuti vault lama.
+**Status dokumen:** spesifikasi dan acuan penerimaan implementasi. Backend BankKYC v2 sudah tersedia pada `backend/kyc/`, dengan entry point `backend/app/server.py`. Frontend terhubung ke API dalam mode live. Auth/session/CSRF, role + ownership/assignment, pengajuan dan versi bukti, enkripsi berlapis, serta lab dengan pengukuran nyata sudah diimplementasikan. Kode vault lama tetap ada sebagai referensi/regresi, bukan server default.
+
+**Status lokal yang diperiksa:** web `http://127.0.0.1:3000` dan API `http://127.0.0.1:8000` berjalan; health langsung maupun melalui proxy mengembalikan `api: bankkyc`, `status: ok`, `storage: sqlite`. Login/logout melalui browser dan smoke HTTP register → profil → unggah/unduh PNG/PDF/MP4 byte-identical → submit → logout berhasil. Database lokal persisten memakai SQLite; **MySQL tetap target integrasi/penilaian**, tetapi belum dinyalakan atau diuji ulang pada mesin Windows ini. Catatan pengujian sebelumnya dan batas cakupan ada di [VERIFIKASI.md](VERIFIKASI.md), panduan aktual ada di [backend/README.md](backend/README.md).
+
+Bagian persyaratan dan checklist berikut tetap menjadi acuan verifikasi; keberadaan implementasi tidak otomatis berarti setiap target deployment, keputusan dosen, atau kriteria operasional telah selesai.
 
 ## Panduan baca cepat
 
@@ -51,6 +55,8 @@ Payload empat kategori, termasuk nama file/profil yang privat, berada dalam caku
 
 ## 3. Kondisi repo dan pemanfaatan kode lama
 
+Implementasi aktif sekarang berada di `backend/kyc/`: `main.py`, `db.py`, `crypto.py`, `validation.py`, `lab.py`, `config.py`, serta migrasi di `backend/migrations/`. `backend/manage.py` menyediakan migrate/provisioning; `backend/tests/test_bankkyc.py` menguji kontrak baru dan `backend/scripts/smoke_kyc_live.py` memeriksa jalur HTTP lewat Next.js. Tabel berikut mencatat perbedaan desain dari vault lama, bukan daftar fitur BankKYC yang masih belum dibuat.
+
 | Area | Sudah ada pada vault lama | Pekerjaan BankKYC |
 | --- | --- | --- |
 | Auth | Register/login/logout, password hash, session/CSRF | Tambah role/display_name, provisioning, revocation dan tes peran |
@@ -63,7 +69,7 @@ Payload empat kategori, termasuk nama file/profil yang privat, berada dalam caku
 
 File awal yang perlu dibaca: `backend/app/crypto.py`, `db.py`, `main.py`, `schemas.py`, `config.py`, `tests/`, dan `scripts/smoke_live.py`. Kode lama adalah referensi implementasi, bukan spesifikasi baru. Tes lama yang lulus tidak membuktikan BankKYC lulus.
 
-`backend/setup_env.py` saat ini dapat membuat FE dalam mode live dan default database SQLite. Perbaiki script ketika integrasi BankKYC siap; jangan mengaktifkan live otomatis selama endpoint baru belum tersedia.
+`backend/setup_env.py` menambahkan kunci lokal yang belum ada tanpa mengganti kunci lama. Flag `--live` menghubungkan FE ke BankKYC; tanpa flag, konfigurasi FE tidak disentuh. Database default lokal SQLite; MySQL memerlukan URL dan migrasi pada database tujuan baru. Mengganti URL tidak memindahkan data secara otomatis.
 
 ## 4. Arsitektur dan batas kepercayaan
 
@@ -280,7 +286,7 @@ Daftar P0 kompatibel FE mengembalikan kumpulan demo terbatas tanpa pagination te
 | Masalah | Keputusan handoff |
 | --- | --- |
 | Respons download profil | `api.call` saat ini memparse `application/json` menjadi object. Kembalikan **application/octet-stream + Content-Disposition attachment** untuk endpoint download profil, walaupun isinya JSON. Endpoint GET personal-data biasa tetap JSON. Alternatif perbaikan FE: transport Blob eksplisit, disepakati bersama |
-| Rotasi CSRF sesudah login | Target auth merotasi session dan CSRF pada login. FE saat ini masih menyimpan token pre-login. **Pekerjaan integrasi FE P0:** panggil `clearApiSession()` setelah login berhasil, sehingga mutation berikutnya mengambil token baru. Bila registration merotasi CSRF, lakukan reset setelah register juga. Jangan mematikan CSRF untuk menutupi mismatch |
+| Rotasi CSRF sesudah login | Sudah dikoordinasikan: auth merotasi session/CSRF dan transport FE memanggil `clearApiSession()` setelah login/register berhasil. Mutation berikutnya mengambil token baru. Smoke HTTP register/login dan mutation setelah login berhasil; jangan mematikan CSRF untuk menutupi mismatch |
 | Lab sementara | FE mock selalu menghasilkan angka statis. BE tidak boleh menyalin angka itu atau mengirim `simulated:false` untuk hasil buatan |
 | Status job lab | P0 adalah request sinkron bounded. API queued/running membutuhkan polling/UI baru; tidak plug-and-play |
 | Input profil | BE wajib mengulang validasi. Beberapa batas FE saat ini 500 karakter untuk semua string; field limit BE lebih spesifik harus disinkronkan ke FE bila dipilih |

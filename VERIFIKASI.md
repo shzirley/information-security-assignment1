@@ -2,6 +2,19 @@
 
 Tanggal: 27 Oktober 2026. Dataset seluruhnya sintetis. Pengujian dilakukan pada Linux, Python 3.12 dan Node.js 24.22.1; versi dependensi Python dicatat pada `backend/constraints-tested.txt`, dependensi frontend pada `frontend/package-lock.json`.
 
+## Pemeriksaan lokal Windows tambahan
+
+27 Oktober 2026: Python 3.11.9, Node.js 22.17.0, Next.js 16.4.3. Startup dilakukan lewat setup manual dan proses background, bukan dengan menjalankan `start.bat`/launcher.
+
+- `pip check`: lulus, tidak ada dependensi rusak.
+- `python -m pytest tests/test_bankkyc.py tests/test_api.py tests/test_crypto.py -q --tb=short`: **65 passed**, satu peringatan deprecation, 80,73 detik. Parameter payload pada tes crypto legacy diberi ID pendek agar `PYTEST_CURRENT_TEST` tidak melampaui batas environment Windows 32.767 karakter; input dan assertion tetap sama.
+- Web port 3000 dan API port 8000 aktif. Health langsung dan melalui proxy Next.js mengembalikan `api=bankkyc`, `status=ok`, `storage=sqlite`.
+- `scripts/smoke_kyc_live.py --origin http://127.0.0.1:3000`: lulus register/login/rotasi CSRF, profil canonical, unggah/unduh PNG/PDF/MP4 dengan byte sama, submit, pembacaan ulang, dan logout. Satu akun/kasus sintetis pengujian tersimpan pada database lokal.
+- Microsoft Edge headless: login lewat formulir, dashboard pemohon memakai API live, dan logout berhasil. Ini pemeriksaan login/dashboard, bukan klaim seluruh alur browser lintas peran telah diuji.
+- Database lokal yang dinyalakan adalah SQLite persisten di `backend/data/bankkyc.db`. MySQL tidak dinyalakan atau diuji ulang dalam pemeriksaan Windows ini. Catatan MySQL dan pengujian Linux pada bagian berikut adalah hasil pemeriksaan sebelumnya.
+
+## Hasil pemeriksaan sebelumnya di Linux
+
 | Pemeriksaan | Hasil aktual |
 | --- | --- |
 | Seluruh tes backend dengan SQLite | **65 passed**: 37 tes BankKYC dan 28 tes regresi backend legacy |

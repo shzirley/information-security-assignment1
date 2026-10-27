@@ -2,9 +2,9 @@
 
 Versi 1.2 · 27 Oktober 2026 · Animasi hero tanpa kontrol tambahan, login standar, dan bahasa antarmuka
 
-Status: spesifikasi FE dan implementasi prototipe dengan API mock. Integrasi backend BankKYC belum selesai.
+Status: antarmuka BankKYC telah terhubung ke backend FastAPI v2 dalam mode live. Database lokal memakai SQLite persisten; konfigurasi MySQL tersedia. Browser mock tetap menjadi fasilitas tes terpisah, bukan status runtime lokal saat ini.
 
-Handoff untuk pengembang BE: [Backend PRD v1.0](VELTRIX_BankKYC_BE_PRD.md). Kontrak response/path mengikuti FE ini. Perhatikan bagian 9 dokumen BE untuk koordinasi reset cache CSRF sesudah login, response download profil biner, dan batas job lab; penyusunan dokumen tidak otomatis mengimplementasikan penyesuaian tersebut.
+Handoff dan status implementasi BE: [Backend PRD v1.1](VELTRIX_BankKYC_BE_PRD.md). Kontrak response/path mengikuti FE ini. Reset cache CSRF setelah login/register dan response download profil biner sudah tersedia. Batas job lab dan target pengembangan selanjutnya tetap perlu diperhatikan; hasil pemeriksaan dicatat di [VERIFIKASI.md](VERIFIKASI.md).
 
 ## 1. Sumber keputusan dan batas dokumen
 
@@ -324,9 +324,9 @@ QA antislop DURING menggunakan arah desain GSM dan decision log `frontend/DESIGN
 
 **Dalam revisi FE ini:** landing dengan animasi headline tanpa kontrol tambahan dan motion bukti saat scroll, login kredensial dan routing sesuai peran session, shell sesuai peran, dashboard/list/detail kasus, wizard lima langkah, validasi dataset awal, versi upload, owner-only preview/download, state machine mock, tinjauan metadata, penugasan admin, lab fixture/riwayat/CSV simulasi, tema, responsive, dan dokumentasi/QA.
 
-**Belum menjadi implementasi BankKYC live:** tabel/migrasi MySQL baru, role/provisioning server, endpoint pengajuan/assignment, encrypted personal/evidence version storage, pipeline AES-GCM baru, key lifecycle, signature/content validation mendalam, penyimpanan draf persisten, transaksi atomic, integrity/tamper tests server, benchmark nyata/raw samples/environment, long-running jobs, pagination/idempotency/rate limiting untuk endpoint baru, retention/deletion/export rights, dan review privasi/regulasi. Backend vault lama tidak memenuhi daftar ini secara otomatis.
+**Implementasi BE yang sudah tersedia:** skema/migrasi BankKYC, role/provisioning, session/CSRF, endpoint pengajuan/assignment, penyimpanan profil/bukti berversi dan terenkripsi, pipeline RC4 → DES-CBC → AES-256-GCM, pembungkusan kunci, validasi konten, draf persisten, transaksi dan version conflict, tes integritas/otorisasi, serta pengukuran lab dengan raw samples dan lingkungan eksekusi. Runtime lokal sudah menggunakan API tersebut, bukan MSW.
 
-Prioritas berikut: kunci D-01/D-02 → finalisasi kontrak & migrasi → session/role dan ownership/assignment BE → write/retrieval empat kategori → verifikasi integritas/negative security tests → benchmark nyata dan interpretasi → dokumentasi laporan serta paket bukti.
+**Masih perlu dituntaskan/diverifikasi sesuai target:** MySQL pada mesin/deployment tujuan, seluruh alur browser live lintas empat peran, corpus benchmark representatif, interpretasi hasil dan laporan akhir, keputusan dosen D-01/D-02, serta kebutuhan lanjutan seperti pagination, job asinkron, lifecycle/retention dan hak ekspor/penghapusan. Health dan smoke HTTP lokal bukan klaim semua target tersebut sudah lulus. Peta pengujian aktual ada di `VERIFIKASI.md`.
 
 ## 18. Keputusan terbuka dan risiko
 
