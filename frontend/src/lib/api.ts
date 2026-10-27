@@ -46,6 +46,7 @@ async function session(path: string, options?: RequestInit) {
   if (!user || !['applicant', 'reviewer', 'admin', 'evaluator'].includes(user.role) || typeof user.display_name !== 'string') {
     throw new ApiError(426, 'KYC_CONTRACT_REQUIRED', 'Layanan pengajuan belum tersedia. Coba lagi setelah layanan diperbarui.');
   }
+  if (path === '/auth/login' || path === '/auth/register') clearApiSession();
   return user;
 }
 export const api = {

@@ -25,6 +25,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       if (isMock) {
         mockStart ??= import('@/mocks/browser').then(({ worker }) => worker.start({ onUnhandledRequest: 'bypass', quiet: true }));
         await mockStart;
+      } else if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.filter(registration => (registration.active ?? registration.waiting ?? registration.installing)?.scriptURL.endsWith('/mockServiceWorker.js')).map(registration => registration.unregister()));
       }
       if (mounted) setReady(true);
     };

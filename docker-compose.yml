@@ -1,0 +1,22 @@
+# Optional MySQL server. The one-click local launcher uses SQLite by default.
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: veltrix_kyc
+      MYSQL_USER: veltrix_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in your shell}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in your shell}
+    ports:
+      - "127.0.0.1:3306:3306"
+    command: ["--max-allowed-packet=134217728", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_bin"]
+    volumes:
+      - bankkyc_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+volumes:
+  bankkyc_mysql:
