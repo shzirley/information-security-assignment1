@@ -2,9 +2,9 @@
 
 Frontend Next.js menggunakan backend FastAPI BankKYC dalam mode live secara default. UI dan aset desain asli dipertahankan. Backend mengelola akun, peran, sesi, pengajuan, bukti, versi, catatan, penugasan dan hasil lab di database permanen.
 
-Dari root gunakan `start.bat` (Windows) atau `bash start.sh` (Linux/macOS). Petunjuk lengkap: `../PANDUAN_MENJALANKAN.md`.
+Dari root gunakan `start.bat` (Windows) atau `bash start.sh` (Linux/macOS). Petunjuk lengkap: [panduan menjalankan](../docs/guides/PANDUAN_MENJALANKAN.md). Spesifikasi, referensi, dan hasil QA ada di [indeks dokumentasi](../docs/README.md); arah desain tetap di [DESIGN.md](DESIGN.md).
 
-Untuk startup manual, jalankan backend sesuai `../backend/README.md`, lalu:
+Untuk startup manual, jalankan backend sesuai [panduan backend](../backend/README.md), lalu dari folder `frontend/`:
 
 ```bash
 npm ci
@@ -31,4 +31,4 @@ Tes API melalui proxy nyata: nyalakan backend pada port 8000 dan frontend pada 3
 
 Mock masih tersedia hanya jika secara eksplisit memilih `NEXT_PUBLIC_API_MODE=mock`; data mock sementara dan bukan database. Registrasi dalam mode live membuat akun pemohon sesungguhnya di DB lokal. Akun operator dibuat melalui CLI backend; password demo acak ditampilkan oleh launcher.
 
-Tes `tests/flows.spec.ts` adalah tes mock UI historis dan membutuhkan build mock serta Edge lokal. Hasil tes itu tidak dianggap bukti integrasi backend live. Lihat `../VERIFIKASI.md` untuk pemeriksaan yang benar-benar dijalankan pada paket ini.
+Tes `tests/flows.spec.ts` adalah tes mock UI historis dan membutuhkan build mock serta Edge lokal. Hasil tes itu tidak dianggap bukti integrasi backend live. Lihat [hasil verifikasi](../docs/verification/VERIFIKASI.md) untuk pemeriksaan yang benar-benar dijalankan pada paket ini.

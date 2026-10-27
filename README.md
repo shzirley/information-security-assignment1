@@ -172,7 +172,7 @@ The launcher creates the Python environment, installs dependencies, generates mi
 
 Applicants can register through the interface. The launcher also creates role-specific accounts with random passwords, displayed in its terminal and saved in `backend/data/demo-accounts.txt`. There is no shared fixed password; the credential file is excluded from Git.
 
-For manual setup and troubleshooting, see the [running guide](PANDUAN_MENJALANKAN.md) and [backend guide](backend/README.md).
+For manual setup and troubleshooting, see the [running guide](docs/guides/PANDUAN_MENJALANKAN.md) and [backend guide](backend/README.md).
 
 ## Configuration, persistence, and backup
 
@@ -227,7 +227,7 @@ npm.cmd run build
 
 Use `npm` on Linux/macOS. The Playwright suite in `frontend/tests/flows.spec.ts` targets **browser mocks**, a mock-mode production build, and Microsoft Edge on port 3100. Run it in an isolated checkout/configuration; its results do not verify live cryptography.
 
-Recorded checks include **65 passing backend tests with SQLite**, live HTTP integration, and applicant login/dashboard/logout in a real browser. An earlier MySQL 8.0.46 run recorded **36 passed and one SQLite-specific test skipped**. These results have stated environments and coverage; they do not verify every deployment. See [verification results and limitations](VERIFIKASI.md).
+Recorded checks include **65 passing backend tests with SQLite**, live HTTP integration, and applicant login/dashboard/logout in a real browser. An earlier MySQL 8.0.46 run recorded **36 passed and one SQLite-specific test skipped**. These results have stated environments and coverage; they do not verify every deployment. See [verification results and limitations](docs/verification/VERIFIKASI.md).
 
 ## Deployment status
 
@@ -252,21 +252,30 @@ backend/
   scripts/                 Live integration checks and support scripts
   tests/                   BankKYC and legacy regression tests
   manage.py                Migration, provisioning, backup and cleanup CLI
+docs/
+  README.md                Documentation index and reading order
+  prd/                     Product, frontend, and backend requirements
+  design/                  Brand guidelines and component provenance
+  guides/                  Setup and troubleshooting
+  verification/            Test results, UI audit, and security upgrade record
+  references/              Assignment images and original brand board
 launcher.py                Local setup and service startup
 start.bat / start.sh       Platform-specific launcher entry points
 ```
 
 ## Project documentation
 
+Start with the [documentation index](docs/README.md) for the recommended reading order and original assignment references. Paths in command examples are relative to the repository root unless a different working directory is specified.
+
 | Document | Contents |
 | --- | --- |
-| [Product PRD](VELTRIX_BankKYC_PRD.md) | Scenario, requirements, privacy boundaries, and open academic decisions |
-| [Frontend PRD](VELTRIX_BankKYC_FE_PRD.md) | Screens, flows, API contracts, interactions, and acceptance criteria |
-| [Backend PRD](VELTRIX_BankKYC_BE_PRD.md) | Architecture, authorization, encryption, persistence, and handoff |
-| [Brand guidelines](VELTRIX_GSM_v0.1.md) | Logo, color palette, and typography |
-| [Running guide](PANDUAN_MENJALANKAN.md) | Detailed setup and troubleshooting in Indonesian |
+| [Product PRD](docs/prd/VELTRIX_BankKYC_PRD.md) | Scenario, requirements, privacy boundaries, and open academic decisions |
+| [Frontend PRD](docs/prd/VELTRIX_BankKYC_FE_PRD.md) | Screens, flows, API contracts, interactions, and acceptance criteria |
+| [Backend PRD](docs/prd/VELTRIX_BankKYC_BE_PRD.md) | Architecture, authorization, encryption, persistence, and handoff |
+| [Brand guidelines](docs/design/VELTRIX_GSM_v0.1.md) | Logo, color palette, and typography |
+| [Running guide](docs/guides/PANDUAN_MENJALANKAN.md) | Detailed setup and troubleshooting in Indonesian |
 | [Backend guide](backend/README.md) | Configuration, migrations, operators, MySQL, and backup |
 | [Frontend guide](frontend/README.md) | Setup, live transport, and mock-test scope |
-| [Verification report](VERIFIKASI.md) | Actual test results, environments, and remaining coverage |
+| [Verification report](docs/verification/VERIFIKASI.md) | Actual test results, environments, and remaining coverage |
 
 The coursework submission also requires meaningful Git history, a report of at most two A4 pages explaining the scenario and design decisions, interpreted experimental results, and the actual AI conversation link and screenshot when AI assistance is used.

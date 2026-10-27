@@ -2,7 +2,9 @@
 
 27 October 2026. Scope: the BankKYC frontend with browser mock API. This supersedes the 13 October vault UI audit (retained in Git history).
 
-Filter: `C:/Users/NITRO V15/.claude/skills/antislop/SKILL.md`, DURING mode explicitly selected in this conversation. Direction: user-supplied VELTRIX brand board/GSM, BankKYC PRD, and `DESIGN.md`. UI/UX Pro Max informed reduced motion and native scrolling; its default brand suggestions were not adopted.
+Filter: `C:/Users/NITRO V15/.claude/skills/antislop/SKILL.md`, DURING mode explicitly selected in this conversation. Direction: user-supplied VELTRIX brand board/GSM, BankKYC PRD, and [frontend/DESIGN.md](../../frontend/DESIGN.md). UI/UX Pro Max informed reduced motion and native scrolling; its default brand suggestions were not adopted.
+
+This is a historical audit of the frontend work at the time described below. For subsequent live-backend checks and current test coverage, see the [implementation verification report](VERIFIKASI.md).
 
 **Delivery gate: PASS for this frontend prototype.** This is not backend security verification, legal-compliance certification, or evidence of real encryption/benchmarking.
 
@@ -137,4 +139,4 @@ Image/DOCX preview branches, native browser file-picker internals, real-server e
 
 Current screenshots have prefix `artifacts/bankkyc-`: landing desktop/dark/mobile, dashboard, wizard dark, detail mobile dark, reviewer, admin, and lab. These were visually inspected; full-page screenshots can capture fixed elements relative to the scroll position, so they supplement actual viewport assertions.
 
-The legacy `backend/` was not migrated or security-tested in this FE task. Remaining work is explicit in `../VELTRIX_BankKYC_FE_PRD.md`: MySQL case schema/migrations, server roles/assignment, provisional layered AES-GCM pipeline, transactional encrypted storage, actual integrity/tamper tests, content validation, benchmark measurements and interpretation, persistence, retention, and lecturer decisions D-01/D-02.
+The legacy `backend/` was not migrated or security-tested in this FE task. Work outstanding at that audit stage was tracked in the [frontend PRD](../prd/VELTRIX_BankKYC_FE_PRD.md): MySQL case schema/migrations, server roles/assignment, provisional layered AES-GCM pipeline, transactional encrypted storage, actual integrity/tamper tests, content validation, benchmark measurements and interpretation, persistence, retention, and lecturer decisions D-01/D-02. This paragraph records the audit's original scope; use the verification report above for subsequent implementation checks.

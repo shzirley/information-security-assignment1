@@ -1,6 +1,8 @@
 # VELTRIX frontend direction
 
-Source: the user's `Veltrix Secure Brand Identity Board.png`, `../VELTRIX_GSM_v0.1.md`, and `../VELTRIX_BankKYC_PRD.md`. Product: synthetic bank-onboarding evidence management and an isolated academic cipher lab. Audience: applicants, assigned reviewers, operational admins, and evaluators.
+Source: the user's [brand identity board](<../docs/references/Veltrix Secure Brand Identity Board.png>), [GSM](../docs/design/VELTRIX_GSM_v0.1.md), and [product PRD](../docs/prd/VELTRIX_BankKYC_PRD.md). Product: synthetic bank-onboarding evidence management and an isolated academic cipher lab. Audience: applicants, assigned reviewers, operational admins, and evaluators.
+
+This direction stays alongside the frontend code. Supporting [component references](../docs/design/REFERENCES.md) and the [historical UI audit](../docs/verification/ANTISLOP_QA.md) are grouped under `docs/`.
 
 Design Read: a case-based KYC workspace using the supplied folded-V/keyhole identity, Midnight Blue, and Royal Blue. Landing ENERGY 3 / RHYTHM 3 / MOTION 2; workspace ENERGY 2 / RHYTHM 2 / MOTION 1. The hero rotates evidence nouns without a visible pause button or footnote, following the user's clarified request. The scroll-linked evidence sequence retains the supplied reference direction with reduced-motion support.
 

@@ -2,6 +2,8 @@
 
 API FastAPI yang sesuai dengan `frontend/src/lib/kyc-api.ts`. Database permanen SQLite untuk startup lokal, MySQL melalui `mysql+pymysql` untuk deployment terpisah. Alur vault lama berada di `app/main.py` sebagai referensi; entry point `app.server:app` sekarang menggunakan `kyc/main.py`.
 
+Spesifikasi dan kontrak integrasi: [Backend PRD](../docs/prd/VELTRIX_BankKYC_BE_PRD.md). Dokumentasi lengkap: [indeks dokumentasi](../docs/README.md).
+
 ## Setup manual (Windows)
 
 Jalankan dari folder `backend`:
@@ -144,4 +146,4 @@ Suite BankKYC secara default memakai file SQLite temporer, bukan database penggu
 KYC_TEST_DATABASE_URL='mysql+pymysql://test_user:test_password@127.0.0.1:3306/veltrix_kyc_test?charset=utf8mb4' KYC_TEST_ALLOW_RESET=yes python -m pytest tests/test_bankkyc.py -q
 ```
 
-**URL test tersebut direset oleh suite. Jangan pernah menunjuk ke database berisi pekerjaan pengguna.** Hasil aktual dan batas coverage tercatat pada `../VERIFIKASI.md`.
+**URL test tersebut direset oleh suite. Jangan pernah menunjuk ke database berisi pekerjaan pengguna.** Hasil aktual dan batas coverage tercatat pada [hasil verifikasi](../docs/verification/VERIFIKASI.md).

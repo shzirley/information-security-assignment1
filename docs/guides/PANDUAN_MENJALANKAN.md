@@ -1,5 +1,7 @@
 # Panduan menjalankan VELTRIX BankKYC
 
+Jalankan perintah dari root repository kecuali bagian terkait menyebut folder lain. Lokasi panduan di `docs/guides/` tidak mengubah folder kerja perintah. Lihat juga [indeks dokumentasi](../README.md) dan [panduan backend](../../backend/README.md).
+
 ## 1. Persiapan
 
 Ekstrak seluruh isi ZIP. Disarankan lokasi singkat seperti `C:\VELTRIX_BankKYC`. Siapkan:

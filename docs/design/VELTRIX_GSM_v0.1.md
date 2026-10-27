@@ -2,7 +2,7 @@
 
 Versi 0.1 • 13 Oktober 2026 • Untuk frontend academic MVP
 
-Sumber identitas: [Veltrix Secure Brand Identity Board.png](<Veltrix Secure Brand Identity Board.png>). Logo, nama warna, hex palette, Montserrat, Inter, dan tagline mengikuti board tersebut. Aturan ukuran, clear space, dan pemetaan komponen di bawah adalah turunan implementasi web, karena detail ukurannya belum ditetapkan dalam board.
+Sumber identitas: [Veltrix Secure Brand Identity Board.png](<../references/Veltrix Secure Brand Identity Board.png>). Logo, nama warna, hex palette, Montserrat, Inter, dan tagline mengikuti board tersebut. Aturan ukuran, clear space, dan pemetaan komponen di bawah adalah turunan implementasi web, karena detail ukurannya belum ditetapkan dalam board.
 
 ## 1. Identitas
 

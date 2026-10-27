@@ -4,15 +4,15 @@ Versi 1.2 · 27 Oktober 2026 · Animasi hero tanpa kontrol tambahan, login stand
 
 Status: antarmuka BankKYC telah terhubung ke backend FastAPI v2 dalam mode live. Database lokal memakai SQLite persisten; konfigurasi MySQL tersedia. Browser mock tetap menjadi fasilitas tes terpisah, bukan status runtime lokal saat ini.
 
-Handoff dan status implementasi BE: [Backend PRD v1.1](VELTRIX_BankKYC_BE_PRD.md). Kontrak response/path mengikuti FE ini. Reset cache CSRF setelah login/register dan response download profil biner sudah tersedia. Batas job lab dan target pengembangan selanjutnya tetap perlu diperhatikan; hasil pemeriksaan dicatat di [VERIFIKASI.md](VERIFIKASI.md).
+Handoff dan status implementasi BE: [Backend PRD v1.1](VELTRIX_BankKYC_BE_PRD.md). Kontrak response/path mengikuti FE ini. Reset cache CSRF setelah login/register dan response download profil biner sudah tersedia. Batas job lab dan target pengembangan selanjutnya tetap perlu diperhatikan; hasil pemeriksaan dicatat di [VERIFIKASI.md](../verification/VERIFIKASI.md).
 
 ## 1. Sumber keputusan dan batas dokumen
 
-Dokumen ini menjadi acuan FE terbaru untuk alur BankKYC. Acuan produk: [BankKYC PRD v2.1](VELTRIX_BankKYC_PRD.md). Acuan identitas: [GSM v0.1](VELTRIX_GSM_v0.1.md) dan `Veltrix Secure Brand Identity Board.png`. Logo, warna, dan font dari GSM tetap berlaku.
+Dokumen ini menjadi acuan FE terbaru untuk alur BankKYC. Acuan produk: [BankKYC PRD v2.1](VELTRIX_BankKYC_PRD.md). Acuan identitas: [GSM v0.1](../design/VELTRIX_GSM_v0.1.md) dan [brand identity board](<../references/Veltrix Secure Brand Identity Board.png>). Logo, warna, dan font dari GSM tetap berlaku.
 
 Kesepakatan stack: Next.js + TypeScript untuk FE, FastAPI untuk BE, **MySQL** untuk database relasional. SQLite dalam backend lama merupakan fasilitas pengembangan historis, bukan perubahan terhadap pilihan MySQL untuk target BankKYC.
 
-Dua paste komponen dari pengguna menjadi referensi komposisi hero dan elemen yang tersusun berdasarkan posisi scroll. Klarifikasi pengguna: animasi pergantian headline tetap aktif; yang dihapus hanya tombol jeda dan tulisan tambahan di bawah hero. Implementasi disesuaikan dengan KYC, bukan menyalin teks promosi atau ikon aplikasi pada contoh. Tidak ada klaim kompatibilitas produksi atau lisensi upstream yang belum diverifikasi; provenance dicatat di `frontend/REFERENCES.md`.
+Dua paste komponen dari pengguna menjadi referensi komposisi hero dan elemen yang tersusun berdasarkan posisi scroll. Klarifikasi pengguna: animasi pergantian headline tetap aktif; yang dihapus hanya tombol jeda dan tulisan tambahan di bawah hero. Implementasi disesuaikan dengan KYC, bukan menyalin teks promosi atau ikon aplikasi pada contoh. Tidak ada klaim kompatibilitas produksi atau lisensi upstream yang belum diverifikasi; provenance dicatat di [referensi komponen](../design/REFERENCES.md).
 
 PRD internal ini tidak dibatasi dua halaman. Laporan penilaian akhir tetap maksimum dua halaman A4 sesuai assignment.
 
@@ -318,7 +318,7 @@ Tidak ada PII/tokens/kunci di localStorage, URL, analytics, atau log UI. Prefere
 | FE-12 | Build/typecheck dan Playwright lulus; screenshot diperiksa, console runtime dipantau |
 | FE-13 | Beranda, login, dan empat ruang kerja bebas label FE/frontend/backend/API mock/live; pemberitahuan data sementara, belum dienkripsi, serta hasil lab simulasi tetap jelas |
 
-QA antislop DURING menggunakan arah desain GSM dan decision log `frontend/DESIGN.md`. Hasil aktual, coverage interaksi, dan batas pengujian dicatat di `frontend/ANTISLOP_QA.md`; daftar acceptance ini sendiri bukan klaim pengujian lulus.
+QA antislop DURING menggunakan arah desain GSM dan [decision log](../../frontend/DESIGN.md). Hasil aktual, coverage interaksi, dan batas pengujian dicatat di [audit antislop](../verification/ANTISLOP_QA.md); daftar acceptance ini sendiri bukan klaim pengujian lulus.
 
 ## 17. Status implementasi dan backlog
 
@@ -326,7 +326,7 @@ QA antislop DURING menggunakan arah desain GSM dan decision log `frontend/DESIGN
 
 **Implementasi BE yang sudah tersedia:** skema/migrasi BankKYC, role/provisioning, session/CSRF, endpoint pengajuan/assignment, penyimpanan profil/bukti berversi dan terenkripsi, pipeline RC4 → DES-CBC → AES-256-GCM, pembungkusan kunci, validasi konten, draf persisten, transaksi dan version conflict, tes integritas/otorisasi, serta pengukuran lab dengan raw samples dan lingkungan eksekusi. Runtime lokal sudah menggunakan API tersebut, bukan MSW.
 
-**Masih perlu dituntaskan/diverifikasi sesuai target:** MySQL pada mesin/deployment tujuan, seluruh alur browser live lintas empat peran, corpus benchmark representatif, interpretasi hasil dan laporan akhir, keputusan dosen D-01/D-02, serta kebutuhan lanjutan seperti pagination, job asinkron, lifecycle/retention dan hak ekspor/penghapusan. Health dan smoke HTTP lokal bukan klaim semua target tersebut sudah lulus. Peta pengujian aktual ada di `VERIFIKASI.md`.
+**Masih perlu dituntaskan/diverifikasi sesuai target:** MySQL pada mesin/deployment tujuan, seluruh alur browser live lintas empat peran, corpus benchmark representatif, interpretasi hasil dan laporan akhir, keputusan dosen D-01/D-02, serta kebutuhan lanjutan seperti pagination, job asinkron, lifecycle/retention dan hak ekspor/penghapusan. Health dan smoke HTTP lokal bukan klaim semua target tersebut sudah lulus. Peta pengujian aktual ada di [hasil verifikasi](../verification/VERIFIKASI.md).
 
 ## 18. Keputusan terbuka dan risiko
 
