@@ -1,132 +1,140 @@
-# VELTRIX frontend: antislop delivery gate
+# VELTRIX BankKYC: frontend delivery gate
 
-Date: 13 October 2026. Scope: local frontend prototype with browser mock API.
-Filter source: `C:/Users/NITRO V15/.claude/skills/antislop/SKILL.md`, DURING mode selected by the user. Current design direction: the supplied `Veltrix Secure Brand Identity Board.png`, `../VELTRIX_GSM_v0.1.md`, and `DESIGN.md`. The explicitly requested `skill-creator` was read for scope and reusable-guidance principles; no global skill or entry-file installation was performed.
+27 October 2026. Scope: the BankKYC frontend with browser mock API. This supersedes the 13 October vault UI audit (retained in Git history).
 
-Delivery status: **PASS for this frontend prototype**. This report does not certify backend security, actual cryptography, or academic performance results.
+Filter: `C:/Users/NITRO V15/.claude/skills/antislop/SKILL.md`, DURING mode explicitly selected in this conversation. Direction: user-supplied VELTRIX brand board/GSM, BankKYC PRD, and `DESIGN.md`. UI/UX Pro Max informed reduced motion and native scrolling; its default brand suggestions were not adopted.
+
+**Delivery gate: PASS for this frontend prototype.** This is not backend security verification, legal-compliance certification, or evidence of real encryption/benchmarking.
 
 ## Execution evidence
 
-- PASS: `npm.cmd run build` compiled and type-checked the final source, generated public/workspace pages, and included dynamic file/benchmark detail routes.
-- PASS: standalone `npm.cmd run typecheck` completed successfully during implementation; the final build also reran TypeScript successfully.
-- PASS: all seven scenarios were exercised after the GSM update on an isolated production server at port 3100. Six passed in the full run; the mobile scenario was then reverified successfully in 37.7 seconds after correcting an MSW service-worker unregister/update race. The development server at port 3000 was kept separate.
-- PASS: the supporting-controls scenario checked Inter body font, Montserrat headings, loaded symbol/lockup assets, both themes, and the standalone brand catalog.
-- PASS: axe WCAG 2 A/AA scans reported zero violations in the tested views: Dashboard in both themes; Vault and rendered Lab at mobile width; landing, login, register, personal-data view, and file detail in both themes; chart hover in the dark theme.
-- PASS: 375px, 768px, and 1440px layouts were checked. Root scroll width did not exceed viewport width. The result table uses a labeled, keyboard-focusable horizontal scroll region.
-- PASS: the mobile/theme scenario recorded zero browser `pageerror` events.
-- PASS: current GSM text-token pairs were calculated explicitly, with ratios ranging from 4.72:1 to 14.68:1. Tooltip text is forced to the foreground token rather than its chart-series color.
-- PASS: twelve generated brand SVGs parsed successfully; primary/stacked lockups embed Montserrat and Inter. The PNG board is preserved as the source, and reconstruction provenance is disclosed in GSM/catalog.
+- PASS: `npm.cmd run build`, including strict TypeScript and generation of public/workspace routes.
+- PASS: `npm.cmd run typecheck` independently.
+- PASS: preceding full 12-scenario Playwright suite, Microsoft Edge, isolated production server at port 3100. After the isolated hero correction, `npm.cmd run test:e2e -- --grep 'animated headline without controls'` passed (1 scenario, 20.3 seconds), alongside a fresh production build and typecheck. Other role workflows were unchanged by that correction. Tests and browser runtime monitoring are in `tests/flows.spec.ts`.
+- PASS: browser `pageerror` and unexpected console errors are asserted absent in each scenario. Deliberately induced HTTP 401/403/404/409/422 responses are expected negative tests, not suppressed application exceptions.
+- PASS: axe WCAG 2 A/AA and 2.1 AA scans on landing light/dark and reduced-motion mobile; applicant/reviewer/admin/evaluator home views light/dark at desktop/mobile; applicant detail light/dark mobile; profile wizard dark; upload step; and verification result. Zero violations in these exercised views. This is not exhaustive WCAG certification.
+- PASS: root scroll width checks at 375, 768, 1024, and 1440 px for landing and four role workspaces in both themes; detail was also checked across sizes. The lab table scrolls locally.
+- PASS: reduced motion can be changed while the page is open; the rotating hero switches to fixed `bukti KYC-mu.` and the evidence sequence uses a subscribed media query for its static alternative. Landing accessibility and layout are checked with this preference active.
+- PASS: synthetic MP4 checked with ffprobe: H.264, 640×360, 10.000 seconds, 8,664 bytes. Downloaded fixture bytes are compared with the source by E2E.
+- PASS: downloaded uploaded PDF bytes are compared exactly with the source buffer. This proves mock transport behavior only, not encryption or server integrity.
+- PASS: five consecutive full reloads preserve the fixture login and show the expected seeded cases without service-worker registration exceptions. Registration stays present while inactive clients bypass; application data still resets.
 
-Automated scans cover the exercised states; they are not a claim of exhaustive WCAG certification. E2E assertions against the mock prove frontend behavior, not encryption correctness in a real backend.
+The build reports the intended 34 MiB proxy request cap. The backend's separate limits and new KYC contract are still pending. The test server is temporary and is stopped by Playwright after completion.
 
-## Recorded interaction evidence
+Copy and cleanup revision: development badges and the repeated debug footer were removed. Login now uses credentials only, without fixture-account shortcuts or a role selector. Terminal labels are “Diterima”/“Ditolak”, with API enums unchanged. The viewport checks reject visible FE/frontend/backend, API mock/live, service-worker/localhost instructions, and prototype labels on landing, login, and role views. Usage notices retain the synthetic-only, unencrypted, temporary-browser-storage scope; the lab and its CSV retain the unmeasured simulation boundary.
 
-| Control / flow | Observed behavior |
+Latest user clarification keeps the headline animation active and removes only its visible pause control and footnote. `hero.tsx` rotates evidence nouns every 3.6 seconds at full opacity in a fixed-height line. Hover/focus, offscreen visibility, and hidden tabs suspend rotation; live reduced motion renders fixed text. The accessible heading remains stable. Landing tests observe an actual identity-to-document word change, assert the stable accessible name, and verify the control/footnote remain absent. The scroll-linked evidence sequence, removed academic decorations, and credential-only login remain as before.
+
+Repository cleanup removed the superseded vault PRD/blueprint, legacy verification report, six vault-era screenshots, and the clean completed security worktree. Product/FE/BE BankKYC PRDs, GSM, assignment/brand references, legacy backend migration code, and current screenshots remain. Local documentation links were checked after deletion. The security branch and its commits remain available in Git.
+
+## Recorded interactions
+
+| Control / state | Observed behavior |
 | --- | --- |
-| Landing login, account CTA, workspace link, wordmark | Existing destinations opened; back-to-home and auth switch links worked |
-| Registration submit | Empty/short fields, mismatched password, duplicate username, and successful account creation were exercised |
-| Password visibility | Show/hide changed input type; password paste/managers are not blocked by source |
-| Login | Invalid credentials displayed an error; valid new account and demo shortcut opened Dashboard |
-| Logout / expired session | Returned to login; private reveal disappeared; unauthenticated workspace redirect occurred |
-| New account owner scope | Empty vault appeared; requesting the demo account's file metadata returned 404 |
-| Sidebar navigation / wordmark | Dashboard, personal-data, Vault, and Lab destinations opened |
-| Mobile menu | Open, close button, outside scrim, navigation, and Escape worked |
-| Theme toggle | Light/dark switched and survived subsequent navigation/reload through theme preference |
-| Vault category controls | Document/identity/video/all categories filtered; empty result and reset behavior appeared |
-| Search | Unknown filename displayed no-results state; resetting filters restored records |
-| File chooser / drop alternative | Choose-file opened the native file picker; selected-file input updated the form |
-| Upload validation | Unsupported extension, empty file, and a payload exceeding 25 MB were rejected visibly |
-| Category selector | Identity/video categories updated permitted extensions and cleared previous selection |
-| Clear selected file | Removed the current selection; a new file could then be chosen |
-| Upload submit | Added one record; dialog closed; the list contained the uploaded filename |
-| Detail links | Opened metadata and three cipher representations |
-| AES / RC4 / DES retrieval | Each route downloaded the same uploaded bytes and original filename |
-| File delete | Cancel preserved the item; confirm removed it and returned to Vault |
-| Profile reveal / hide | Each cipher selection revealed dummy values; hiding removed them from the rendered view |
-| Profile edit / cancel | Loaded fields; cancellation discarded the draft and returned to hidden view |
-| Profile validation / dummy fill | Invalid email and missing full name produced field errors; dummy fill populated the form |
-| Profile save / delete | Updated values could be revealed; cancel preserved the profile; confirm removed it; creation worked afterward |
-| Lab source / repetition settings | File deep-link selection, personal-data selection, 10/20/30 choices, and recorded repetitions worked |
-| Crypto run | Rendered explicitly simulated charts, numeric table, method notes, and a history record |
-| Crypto CSV | Export contained a SIMULATED marker and 60 raw samples for 20 runs across three algorithms |
-| History / return link | Opened benchmark detail and returned to Lab |
-| Repeated downloads | Completed 30 requests for 10 runs across three algorithms; export contained 30 samples labeled CLIENT-MEASURED-MOCK |
-| Stop downloads | Stopped the loop; completed samples were retained and the run button became usable |
-| Dialog controls | Cancel, close button, and Escape closed dialogs; Tab stayed within the dialog; focus returned to Upload |
-| Error retry / back | Missing-resource error remained controlled on retry; back returned to Vault |
-| Toast close | Dismissed the displayed feedback message |
-| Chart hover | Exercised tooltip interaction; the dark-mode contrast scan passed |
+| Landing primary CTA | Opens registration |
+| Landing alur/hak akses anchors and back to top | Navigate to real sections and restore top position |
+| Four role rows | Open credential login without filling an account or assigning a role |
+| Animated hero without extra controls | Evidence nouns change; accessible name remains stable; pause/resume buttons and hero footnote are absent |
+| Reduced motion changed live | Rotating headline becomes fixed `bukti KYC-mu.`; landing stays readable and accessible |
+| Theme controls | Switch tokens in landing/workspace; both themes scanned |
+| Registration | Empty fields, password mismatch, duplicate username, and successful new applicant exercised |
+| Password visibility | Show/hide changes the input type |
+| Credential login | Invalid credentials show an error; each role opens its own home after login; no account shortcut panel |
+| New applicant list | Empty state appears; demo owner's case returns 404 |
+| Logout / expired session | Returns to login; attempted expired form mutation clears the workspace session |
+| Search / status select | Matching rows filter; unmatched search displays contextual empty state |
+| New application / create draft | Opens preparation, then creates a fresh DRAFT and enters wizard |
+| Profile submit | Eight missing fields produce an error summary; real-domain email rejected; dummy profile saved |
+| Profile example button | Fills synthetic values only in mock mode |
+| Upload selector / upload button | Wrong extension and wrong signature rejected; valid identity/document/video saved separately |
+| Wizard continue/back | Moves between saved steps; returns saved profile values when revisiting |
+| Synthetic acknowledgement | Submit remains disabled until checked and all four categories exist |
+| Submit confirmation | Sends once, moves to detail, and hides edit controls in SUBMITTED |
+| Profile reveal / Escape | Opens owner profile only on request, removes plaintext on close, restores trigger focus |
+| JSON download | Produces a downloadable dummy profile with DUMMY identifier |
+| PDF preview / close | Opens titled document iframe and closes the dialog |
+| Video preview / close | Opens an MP4 with native controls and no autoplay |
+| Video / document download | Returns the exact source bytes through the mock retrieval route |
+| Version disclosure / download | Expands version history and exposes an owner download per version |
+| Revision upload / resubmit | Adds document v2, retains v1, and enters RESUBMITTED |
+| Incomplete/stale/read-only requests | API mock rejects with CASE_INCOMPLETE, VERSION_CONFLICT, CASE_READ_ONLY |
+| Withdraw / cancel / confirm | Cancel leaves status unchanged; confirm makes WITHDRAWN read-only |
+| Reviewer queue / case link | Only assigned cases appear; unassigned detail returns 404 |
+| Reviewer plaintext attempts | Profile/download routes return 404; case JSON omits filenames and profile values |
+| Start review | Confirmation moves SUBMITTED to UNDER_REVIEW |
+| Request revision | Note required; confirmation records a safe operational note and NEEDS_REVISION |
+| Accept / reject demo | Correct terminal state appears; terminal controls disappear; reject requires an explanation |
+| Admin assignment select / cancel / save | Opens dialog, cancels, or assigns the selected reviewer; list updates |
+| Admin privacy / wrong-role route | No plaintext in metadata; unauthorized UI shows access-limited state; API rejects wrong role |
+| Lab configuration | Fixture selector works; fewer than 30 repetitions disables run |
+| Lab run / result / history | Shows pending/result, stores session history, and reopens the chosen run |
+| Lab CSV export | Filename and content explicitly state SIMULATED |
+| Verification navigation / run | Opens isolated verification view; backend gates remain explicitly not run |
+| Mobile menu / navigation / Escape | Drawer opens, first link gets focus, navigation closes it, Escape restores menu-button focus |
+| Keyboard dialog loop | Tab from last to first and Shift+Tab back remain inside dialog; Escape restores trigger |
+| Unsaved profile link | Dismissing the native leave confirmation keeps the form; save/back retains the new value |
+| Missing resource / retry | Generic not-found message appears and retry repeats the guarded request |
+| Full reload | Seeded demo login recovers without worker update/unregister race |
 
-## Hard gate
+Image/DOCX preview branches, native browser file-picker internals, real-server errors and live cryptography are not claimed as experimentally verified by these tests. Image rendering and unsupported-format download fallback were reviewed in source. Browser history does not have a complete navigation blocker; that prototype limitation is stated in the FE PRD.
 
-R-02 PASS: source scan found no em dash in generated UI copy.
-R-03 PASS: measured root overflow at 375/768/1440px; mobile screenshots show reflowed navigation, settings, and file rows.
-R-17 PASS: file counts/source bytes come from actual mock records; storage estimates and generated crypto numbers are explicitly labeled simulated.
-R-18 PASS: no testimonials or invented endorsements appear.
-R-23 PASS: logo, wordmark, palette, and fonts follow the user's board; the web SVG is explicitly identified as a reconstruction. Navigation follows the blueprint, avatars are initials, and fixtures are dummy/demo.
-R-24 PASS: all rendered nav links have existing routes; tested navigation and source route inventory agree.
-R-25 PASS: token contrast calculations and axe scans passed in the listed views/themes; chart tooltip text uses the readable foreground token.
-R-26 PASS: principal controls and supporting close/navigation controls were exercised with observable outcomes recorded above.
-R-27 PASS: empty vault/profile/history, loading requests, validation errors, API errors, and session-expired states exist and were exercised.
-R-28 PASS: no filler FAQ exists.
-R-32 PASS: keyboard focus, Tab/Shift+Tab, Enter, Escape, mobile menu, and return focus were exercised.
-R-33 PASS: features were authored directly in source with patches; no external source-rewriting UI script exists.
-R-34 PASS: both shipped themes were exercised and scanned; theme choice is persisted separately from private data.
-R-35 PASS: production builds and recorded Playwright click-throughs ran successfully; screenshots were inspected.
-R-36 PASS: no unsupported security/compliance/performance claims; backend and simulated timing limits are visible.
-R-37 PASS: blueprint direction was loaded before building and the Design Read/dials were declared; reasons are in DESIGN.md.
-R-38 PASS: real product scope comes from the assignment/PRD; generated fixtures and numbers are honest demo content.
+## Per-rule delivery gate
 
-## Purpose gate
+- R-01 PASS: GSM colors retained; gradient limited to the existing brand symbol. Reason in DESIGN.md.
+- R-02 PASS: no em dash in shipped React UI copy; wording uses KYC tasks and plain-language synthetic/session limits, with implementation jargon confined to developer documentation.
+- R-03 PASS: four viewport sizes checked; cards move inward so initial animation does not crop their content.
+- R-04 PASS: document, identity, video, review, assignment and lab icons name their adjacent purpose; fingerprint is an academic identity/privacy marker, not a biometric capability claim.
+- R-05 PASS: case preview, evidence assembly, numbered process and permissions ledger provide distinct content-led sections.
+- R-06 PASS: supplied Montserrat/Inter maintained; loaded font families asserted by E2E.
+- R-07 PASS: no decorative background grid, blueprint, or dot texture.
+- R-08 PASS: arrows indicate destination or next step; decisions, cancellation, toggles and upload use direct controls.
+- R-09 PASS: labels represent actual case status, version, scope or simulation boundaries.
+- R-10 PASS: no glassmorphism or stacked backdrop blur.
+- R-11 PASS: actions, status labels, panels and document preview have distinct radii.
+- R-12 PASS: soft elevation belongs to the illustrative case sheet and transient toast/dialog, not every panel.
+- R-13 PASS: no ornamental glow system.
+- R-14 PASS: equal evidence tiles express four equally mandatory categories; operational layout follows case priority.
+- R-15 PASS: CTA names specify actions such as Mulai pengajuan, Simpan & lanjutkan, Minta revisi and Simpan penugasan.
+- R-16 PASS: no unverified marketing superlatives, speed or compliance copy.
+- R-17 PASS: counts derive from case fixtures; lab figures are explicitly static simulations, including CSV.
+- R-18 PASS: no customer testimonials, stock team portraits, or fabricated endorsements.
+- R-19 PASS: headline rotation and evidence assembly explain the KYC categories; headline has no visible controls as requested, retains full contrast, and suspends for hover/focus, offscreen/hidden tabs, or reduced motion.
+- R-20 PASS: KYC evidence sheet, case references, revision notes and permission ledger carry product-specific identity.
+- R-21 PASS: default light plus functional user-controlled dark mode; both inspected and scanned.
+- R-22 PASS: case preview is a labeled synthetic application; MP4 is a labeled dummy fixture. No unrelated stock illustration.
+- R-23 PASS: existing user-authorized logo/GSM reused; synthetic assets follow the supplied PRD and explicit demo labels. No invented real-person imagery.
+- R-24 PASS: navigation targets exist; legacy routes redirect; no unbuilt user-management/delegation menu.
+- R-25 PASS: semantic text tokens and exercised themes passed axe contrast scans; no claim of formal full accessibility certification.
+- R-26 PASS: control matrix above records real navigation, mutation, download, disclosure and dialog behavior.
+- R-27 PASS: list/detail/profile/assignment/history queries and experiments have loading, empty and error handling; empty/error paths exercised.
+- R-28 PASS: no fabricated generic FAQ section.
+- R-29 PASS: fixed GSM palette; green/amber/red have documented status functions.
+- R-30 PASS: adapted motion references with original KYC composition, existing identity and contextual copy; no popular-product clone.
+- R-31 PASS: major visual choices and exceptions have one-line reasons in DESIGN.md and the FE PRD.
+- R-32 PASS: visible focus, dialog loops, async reveal return-focus, Escape, mobile drawer and form validation verified.
+- R-33 PASS: UI/source edits made directly with patches; FFmpeg only generates a synthetic video asset, not UI/CSS replacements.
+- R-34 PASS: both shipped themes checked for four role workspaces and responsive layout.
+- R-35 PASS: production build run, actual browser click-through recorded above, runtime monitoring and screenshots inspected.
+- R-36 PASS: no real security/compliance/performance claims inferred from mock data. Backend migration is explicitly outstanding.
+- R-37 PASS: existing GSM and DESIGN.md read before edits; dials and motion purpose declared before generation.
+- R-38 PASS: case/person/file data explicitly synthetic; lab values explicitly simulated; no ghost links or invented live service capabilities.
 
-R-01 PASS: Royal Blue/Indigo/Cyan gradients serve the reference's folded logo identity; Midnight/Cloud/Royal implement the board palette without generic background glow.
-R-04 PASS: file/upload/download/folder/user/chart icons correspond to content/actions, with rationale in DESIGN.md.
-R-06 PASS: Montserrat logo/headings and Inter body/UI match the supplied typography direction; Fira Code is limited to byte values, indices, and hex.
-R-07 PASS: no decorative background grid or dot pattern.
-R-08 PASS: directional icons identify opening a detail/history destination; primary actions use their relevant action icon.
-R-09 PASS: labels identify cipher versions, legacy algorithms, or actual demo mode; no promotional capsule/glow treatment.
-R-10 PASS: no glassmorphism is used.
-R-12 PASS: shadows identify temporary elevated dialogs/toasts; permanent records rely on borders and hierarchy.
-R-13 PASS: no glow treatment is used.
-R-14 PASS: summary ledger, records, profile area, and Lab tools have content-specific compositions.
-R-19 PASS: animation is limited to interaction/loading feedback; reduced motion was exercised.
-R-22 PASS: the landing diagram explains one source and three independent representations; no unrelated stock illustration.
+## Liveliness and craftsmanship
 
-## Liveliness
+- Design Read PASS: supplied folded-V/keyhole identity, case-centric KYC task, Midnight/Royal Blue established before generation.
+- Dials PASS: landing ENERGY 3 / RHYTHM 3 / MOTION 2; workspace 2 / 2 / 1, matching expressive landing and steady forms.
+- Focal points PASS: hero heading/case sheet, dashboard next action, wizard current step, reviewer decision area.
+- Whitespace PASS: section and task boundaries set the rhythm; numeric case rows stay compact.
+- Accent PASS: Royal Blue prioritizes actions; status colors do not become decoration.
+- Motif PASS: numbered evidence/process and case sheet/ledger repeat with content-specific roles.
+- C-1 PASS: colors, type, spacing, cards, motion and illustration have documented purposes.
+- C-2 PASS: existing controls execute meaningful actions; deferred live functionality is explained in the PRD rather than represented by dead buttons.
+- C-3 PASS: every landing section answers scenario, evidence, process, access, or academic-evaluation questions.
+- C-4 PASS: exercised empty/loading/error, keyboard, responsive and theme states remain usable within the stated mock scope.
+- C-5 PASS: fixtures and simulated results remain distinguishable from real claims, including exports.
 
-PASS: ENERGY 2 / RHYTHM 2 / MOTION 1 are declared in DESIGN.md.
-PASS: layouts vary by task while retaining consistent navigation, typography, and action placement.
-PASS: focal points are account submit, upload, reveal/save, download, or experiment run on their respective screens.
-PASS: whitespace separates task header, source records, and secondary explanations.
-PASS: blue is the deliberate action/selection accent; semantic warning/error colors serve status only.
-PASS: indexed archive sections and three aligned cipher labels repeat across the workspace.
-PASS: Design Read was declared before generation and recorded in DESIGN.md.
+## Artifacts and limits
 
-## Craftsmanship and quality locks
+Current screenshots have prefix `artifacts/bankkyc-`: landing desktop/dark/mobile, dashboard, wizard dark, detail mobile dark, reviewer, admin, and lab. These were visually inspected; full-page screenshots can capture fixed elements relative to the scroll position, so they supplement actual viewport assertions.
 
-C-1 PASS: major color/type/layout/spacing/illustration decisions have written reasons in DESIGN.md.
-C-2 PASS: controls have real navigation or state/API behaviors; no dead CTA or placeholder action remains.
-C-3 PASS: sections correspond to assignment/PRD storage, retrieval, and analysis tasks; no filler marketing blocks.
-C-4 PASS: exercised empty/loading/error/session states, both themes, three viewport widths, and keyboard dialog behavior.
-C-5 PASS: no fabricated trust/customer claims; generated data and timings are labeled.
-R-05 PASS: landing illustrates the actual storage model; dashboard and Lab compositions follow their tasks rather than a marketing template.
-R-11 PASS: actions, panels, and labels use distinct 6/12/4px radii documented in DESIGN.md.
-R-15 PASS: action labels name the task: Upload file, Tampilkan data, Simpan profil demo, Download file demo, Jalankan benchmark, Ekspor CSV.
-R-16 PASS: generated copy does not use unsupported marketing buzzwords.
-R-20 PASS: the reference-derived V/keyhole, Montserrat wordmark, brand tagline, archive indices, and source/crypto/download distinction give the workspace product-specific structure.
-R-21 PASS: light is the blueprint default and a functioning dark toggle gives the user a choice.
-R-29 PASS: Midnight/Cloud/Charcoal anchor surfaces, Royal marks actions, and Indigo/Cyan remain in logo identity; warning/error/success colors are semantic tokens.
-R-30 PASS: design follows the VELTRIX brief without using another product as a visual template.
-R-31 PASS: decision reasons are recorded in DESIGN.md, including chart series and tooltip contrast.
-
-## Visual artifacts
-
-- `artifacts/dashboard-desktop.png`
-- `artifacts/dashboard-dark.png`
-- `artifacts/vault-mobile.png`
-- `artifacts/lab-desktop.png`
-- `artifacts/lab-mobile-dark.png`
-- `artifacts/landing-branded.png`
-- `artifacts/brand-assets.png`
-
-No backend tests are claimed. The next stage is FastAPI/MySQL implementation and integration against the established contract, followed by actual crypto round-trip, tampering, ownership, upload-content, and repeatable performance tests.
+The legacy `backend/` was not migrated or security-tested in this FE task. Remaining work is explicit in `../VELTRIX_BankKYC_FE_PRD.md`: MySQL case schema/migrations, server roles/assignment, provisional layered AES-GCM pipeline, transactional encrypted storage, actual integrity/tamper tests, content validation, benchmark measurements and interpretation, persistence, retention, and lecturer decisions D-01/D-02.

@@ -9,14 +9,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import { isMock } from '@/lib/contracts';
-import { Button, MockNote } from '@/components/ui';
+import { Button, SessionNotice } from '@/components/ui';
 import { ThemeToggle } from '@/components/app-shell';
 import { BrandLogo } from '@/components/brand-logo';
+import { roleHome } from '@/lib/kyc';
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const registration = mode === 'register'; const router = useRouter(); const client = useQueryClient();
-  const [show, setShow] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [demoBusy, setDemoBusy] = useState(false);
+  const [show, setShow] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');
   const schema = z.object({ username: z.string().min(3, 'Username minimal 3 karakter.').max(24, 'Username maksimal 24 karakter.').regex(/^[a-zA-Z0-9_]+$/, 'Gunakan huruf, angka, atau underscore.'), password: z.string().min(registration ? 8 : 1, registration ? 'Password minimal 8 karakter.' : 'Masukkan password.'), confirm: z.string() }).refine(data => !registration || data.password === data.confirm, { path: ['confirm'], message: 'Konfirmasi password belum sesuai.' });
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), defaultValues: { username: '', password: '', confirm: '' } });
   useEffect(() => {
@@ -24,7 +24,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     if (query.has('expired')) setMessage('Sesi berakhir. Masuk kembali untuk membuka workspace.');
     else if (query.has('registered')) setMessage('Akun berhasil dibuat. Silakan masuk.');
   }, []);
-  const login = async (username: string, password: string) => { const user = await api.login(username, password); client.clear(); client.setQueryData(['session'], user); router.push('/dashboard'); };
+  const login = async (username: string, password: string) => { const user = await api.login(username, password); client.clear(); client.setQueryData(['session'], user); router.push(roleHome[user.role]); };
   const submit = form.handleSubmit(async values => {
     setError('');
     try {
@@ -39,18 +39,18 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     <div className="auth-story">
       <Link href="/" className="brand-link" aria-label="VELTRIX"><BrandLogo inverse tagline /></Link>
       <div>
-        <p className="section-index">Personal data vault</p>
-        <h1>Ruang untuk data.<br />Tempat memahami<br /><span>kriptografi.</span></h1>
-        <p>Kelola file dan data pribadi, lalu telusuri perbedaan tiga algoritma melalui eksperimen.</p>
-        <div className="auth-ciphers"><span>AES <small>CBC</small></span><span>RC4 <small>Stream</small></span><span>DES <small>CBC</small></span></div>
+        <p className="section-index">VELTRIX / BankKYC</p>
+        <h1>Pengajuan jelas.<br />Bukti terhubung.<br /><span>Akses seperlunya.</span></h1>
+        <p>Lengkapi profil dan dokumen, kirim pengajuan, lalu ikuti catatan dan hasil peninjauan dari satu tempat.</p>
+        <div className="auth-ciphers"><span>01 <small>Lengkapi</small></span><span>02 <small>Kirim</small></span><span>03 <small>Pantau</small></span></div>
       </div>
-      <p className="auth-footnote">Academic MVP · Gunakan data dummy</p>
+      <p className="auth-footnote">Your data. Your control.</p>
     </div>
     <main className="auth-main">
       <div className="auth-tools"><Link href="/" className="text-link">Kembali ke beranda</Link><ThemeToggle /></div>
       <div className="auth-mobile-brand"><Link href="/" className="brand-link" aria-label="VELTRIX"><BrandLogo tagline /></Link></div>
       <div className="auth-form-wrap">
-        <div className="auth-form-heading"><LockKeyhole size={27} aria-hidden="true" /><h2>{registration ? 'Buat workspace kamu' : 'Selamat datang kembali'}</h2><p>{registration ? 'Mulai dengan username dan password.' : 'Masuk untuk membuka data dan file kamu.'}</p></div>
+        <div className="auth-form-heading"><LockKeyhole size={27} aria-hidden="true" /><h2>{registration ? 'Buat akun pemohon' : 'Selamat datang kembali'}</h2><p>{registration ? 'Akun baru mendapat peran pemohon. Gunakan identitas sintetis.' : 'Masuk untuk melanjutkan pengajuan atau membuka workspace peranmu.'}</p></div>
         {message && <div className="inline-note" role="status">{message}</div>}
         <form onSubmit={submit} noValidate className="form-stack">
           <div className="field">
@@ -68,10 +68,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           </div>
           {registration && <div className="field"><label htmlFor="confirm">Konfirmasi password</label><input id="confirm" type={show ? 'text' : 'password'} autoComplete="new-password" {...form.register('confirm')} aria-invalid={!!form.formState.errors.confirm} aria-describedby="confirm-error" placeholder="Ulangi password" /><p id="confirm-error" className="field-error">{form.formState.errors.confirm?.message}</p></div>}
           {error && <p className="form-error" role="alert">{error}</p>}
-          <Button type="submit" busy={form.formState.isSubmitting} disabled={demoBusy} className="full-width">{registration ? 'Buat akun' : 'Masuk ke workspace'}</Button>
+          <Button type="submit" busy={form.formState.isSubmitting} className="full-width">{registration ? 'Buat akun' : 'Masuk ke workspace'}</Button>
         </form>
-        {!registration && isMock && <div className="demo-login"><p>Ingin melihat alurnya dulu?</p><Button variant="secondary" className="full-width" busy={demoBusy} disabled={form.formState.isSubmitting} onClick={async () => { setDemoBusy(true); setError(''); try { await login('demo_user', 'veltrix123'); } catch (e) { setError(e instanceof Error ? e.message : 'Login gagal.'); } finally { setDemoBusy(false); } }}>Gunakan akun demo</Button><span className="mono">demo_user / veltrix123</span></div>}
-        <p className="auth-switch">{registration ? 'Sudah punya akun?' : 'Belum punya akun?'} <Link href={registration ? '/login' : '/register'}>{registration ? 'Masuk' : 'Buat akun'}</Link></p><MockNote compact />
+        <p className="auth-switch">{registration ? 'Sudah punya akun?' : 'Belum punya akun?'} <Link href={registration ? '/login' : '/register'}>{registration ? 'Masuk' : 'Buat akun'}</Link></p><SessionNotice compact />
       </div>
     </main>
   </div>;

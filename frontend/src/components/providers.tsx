@@ -39,7 +39,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  if (failure) return <main className="boot-screen"><h1>Mode demo belum dapat dimulai</h1><p>Pastikan halaman dibuka melalui localhost dan service worker diperbolehkan.</p><button className="button" onClick={() => window.location.reload()}>Muat ulang</button></main>;
+  if (failure) return <main className="boot-screen"><h1>Halaman belum dapat disiapkan</h1><p>Muat ulang halaman untuk mencoba kembali. Jika masalah berlanjut, periksa izin situs pada browser.</p><button className="button" onClick={() => window.location.reload()}>Muat ulang</button></main>;
   if (!ready) return <main className="boot-screen" aria-busy="true"><BrandLogo tagline /><p>Menyiapkan workspace…</p><span className="spinner" aria-hidden="true" /></main>;
   return <QueryClientProvider client={client}><ToastContext.Provider value={setToast}>{children}<div className="toast-region" aria-live="polite">{toast && <div className="toast"><Check size={18} aria-hidden="true" /><span>{toast}</span><button className="icon-button" aria-label="Tutup pesan" onClick={() => setToast('')}><X size={18} /></button></div>}</div></ToastContext.Provider></QueryClientProvider>;
 }

@@ -74,14 +74,8 @@ addEventListener('message', async function (event) {
     case 'CLIENT_CLOSED': {
       activeClientIds.delete(clientId)
 
-      const remainingClients = allClients.filter((client) => {
-        return client.id !== clientId
-      })
-
-      // Unregister itself when there are no more clients
-      if (remainingClients.length === 0) {
-        self.registration.unregister()
-      }
+      // Keep registration across reloads: unregistering can race the next
+      // client's update(). Fetches without an active mock client still bypass.
 
       break
     }

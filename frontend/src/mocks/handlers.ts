@@ -1,183 +1,217 @@
 import { delay, http, HttpResponse } from 'msw';
-import { ALGORITHMS, type Algorithm, type BenchmarkResult, type Category, type CipherVersion, type CryptoSample, type DownloadAttempt, type PersonalFields, type PersonalRecord, type User, type VaultFile } from '@/lib/contracts';
+import type { Role, User } from '@/lib/contracts';
+import { blankProfile, categories, completeness, editable, evidenceRules, fileError, profileErrors, syntheticProfile, type ApplicantProfile, type Application, type CaseAction, type Evidence, type EvidenceCategory, type LabRun } from '@/lib/kyc';
 
-const limits = { max_file_bytes: 25_000_000, supported_extensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'mp4'], min_repetitions: 10, max_repetitions: 30 };
-const demoUser: User = { id: '00000000-0000-4000-8000-000000000001', username: 'demo_user' };
-const accounts = new Map<string, { user: User; password: string }>([['demo_user', { user: demoUser, password: 'veltrix123' }]]);
-type StoredFile = { owner: string; metadata: VaultFile; blob: Blob };
-type StoredProfile = { owner: string; metadata: PersonalRecord; fields: PersonalFields };
-const files = new Map<string, StoredFile>();
-const profiles = new Map<string, StoredProfile>();
-const benchmarks = new Map<string, { owner: string; result: BenchmarkResult }>();
-const downloadTests = new Map<string, { owner: string; file_id: string; repetitions: number; attempts: DownloadAttempt[] }>();
-const syntheticFields: PersonalFields = { full_name: 'Pengguna Demo', email: 'demo@example.com', phone: '080000000000', address: 'Alamat contoh untuk demonstrasi', date_of_birth: '2000-01-01', identity_number: 'DUMMY-000001' };
-
-function versions(length: number): CipherVersion[] {
-  return ALGORITHMS.map(algorithm => {
-    const block = algorithm === 'AES' ? 16 : 8;
-    const size = algorithm === 'RC4' ? length : (Math.floor(length / block) + 1) * block;
-    return { algorithm, mode: algorithm === 'RC4' ? null : 'CBC', ciphertext_bytes: size, stored_bytes: size + 64, ciphertext_sample_hex: Array.from(crypto.getRandomValues(new Uint8Array(32))).map(n => n.toString(16).padStart(2, '0')).join('') };
+// Interaction fixtures only: no encryption, durable storage, or real sessions.
+const demoAccounts: User[] = [
+  { id: 'applicant-demo', username: 'demo_user', display_name: 'Nara', role: 'applicant' },
+  { id: 'applicant-other', username: 'other_applicant', display_name: 'Pemohon Lain', role: 'applicant' },
+  { id: 'reviewer-demo', username: 'reviewer_demo', display_name: 'Reviewer Utama', role: 'reviewer' },
+  { id: 'reviewer-other', username: 'reviewer_other', display_name: 'Reviewer Kedua', role: 'reviewer' },
+  { id: 'admin-demo', username: 'admin_demo', display_name: 'Admin Operasional', role: 'admin' },
+  { id: 'evaluator-demo', username: 'evaluator_demo', display_name: 'Evaluator Lab', role: 'evaluator' },
+];
+const accounts = new Map(demoAccounts.map(user => [user.username, { user, password: 'veltrix123' }]));
+type StoredCase = { owner: string; application: Application; profile: ApplicantProfile | null; blobs: Map<string, Blob> };
+const cases = new Map<string, StoredCase>();
+const labRuns = new Map<string, { owner: string; run: LabRun }>();
+const now = () => new Date().toISOString();
+function event(action: string, actor_role: Role, note?: string) { return { id: crypto.randomUUID(), at: now(), action, actor_role, ...(note ? { note } : {}) }; }
+function pdf(text: string) {
+  const stream = `BT /F1 16 Tf 45 740 Td (${text}) Tj ET`;
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`];
+  let value = '%PDF-1.4\n'; const offsets: number[] = [];
+  objects.forEach((object, i) => { offsets.push(value.length); value += `${i + 1} 0 obj\n${object}\nendobj\n`; });
+  const start = value.length;
+  value += `xref\n0 6\n0000000000 65535 f \n${offsets.map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`;
+  return new Blob([value], { type: 'application/pdf' });
+}
+function seedCase(id: string, owner: string, status: Application['status'], assigned?: string) {
+  const application: Application = {
+    id, reference: `VTX-2026-${id.split('-').pop()}`, status, version: 1, created_at: '2026-10-24T08:00:00.000Z', updated_at: '2026-10-26T09:00:00.000Z',
+    personal_data_complete: status !== 'DRAFT', evidence: [], events: [{ ...event('Pengajuan dibuat', 'applicant'), at: '2026-10-24T08:00:00.000Z' }],
+    synthetic_acknowledged: status !== 'DRAFT', assigned_reviewer_id: assigned,
+  };
+  const stored: StoredCase = { owner, application, profile: status === 'DRAFT' ? null : { ...syntheticProfile }, blobs: new Map() };
+  cases.set(id, stored);
+  if (status !== 'DRAFT') {
+    for (const category of categories) {
+      const isVideo = category === 'video';
+      const blob = isVideo ? null : pdf(category === 'identity' ? 'DUMMY IDENTITY: fictional person. No real identity.' : 'DUMMY ACCOUNT FORM: academic sample. Not a bank document.');
+      const metadata: Evidence = { id: `${id}-${category}-v1`, category, version: 1, original_bytes: blob?.size ?? 0, mime_type: isVideo ? 'video/mp4' : 'application/pdf', display_name: isVideo ? 'verification-demo.mp4' : `${category}-dummy.pdf`, created_at: application.created_at, validation: 'format_checked' };
+      application.evidence.push(metadata); if (blob) stored.blobs.set(metadata.id, blob);
+    }
+    application.events.push({ ...event('Bukti sintetis lengkap dan dikirim', 'applicant'), at: '2026-10-25T08:00:00.000Z' });
+  }
+  if (status === 'NEEDS_REVISION') {
+    application.revision_note = 'Lengkapi dokumen administrasi dummy dengan halaman tujuan rekening simulasi.';
+    application.events.push({ ...event('Tinjauan metadata dimulai', 'reviewer'), at: '2026-10-26T08:00:00.000Z' });
+    application.events.push({ ...event('Revisi diminta', 'reviewer', application.revision_note), at: application.updated_at });
+  }
+}
+seedCase('case-1001', 'applicant-demo', 'NEEDS_REVISION', 'reviewer-demo');
+seedCase('case-1002', 'applicant-demo', 'DRAFT');
+seedCase('case-1003', 'applicant-demo', 'SUBMITTED', 'reviewer-demo');
+seedCase('case-2001', 'applicant-other', 'SUBMITTED', 'reviewer-other');
+seedCase('case-2002', 'applicant-other', 'SUBMITTED');
+let fixturesReady: Promise<void> | undefined;
+function initFixtures() {
+  return fixturesReady ??= fetch('/fixtures/verification-demo.mp4').then(async response => {
+    if (!response.ok) throw new Error('Fixture video tidak tersedia.');
+    const blob = await response.blob();
+    for (const stored of cases.values()) for (const evidence of stored.application.evidence) if (evidence.category === 'video') { evidence.original_bytes = blob.size; stored.blobs.set(evidence.id, blob); }
   });
 }
-function simplePdf(text: string) {
-  const stream = `BT /F1 16 Tf 50 740 Td (${text}) Tj ET`;
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`];
-  let content = '%PDF-1.4\n'; const offsets = [0];
-  objects.forEach((obj, i) => { offsets.push(content.length); content += `${i + 1} 0 obj\n${obj}\nendobj\n`; });
-  const xref = content.length;
-  content += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return new Blob([content], { type: 'application/pdf' });
+function currentUser() {
+  const value = document.cookie.split('; ').find(c => c.startsWith('veltrix_demo_user='))?.split('=')[1];
+  return value ? accounts.get(decodeURIComponent(value))?.user : undefined;
 }
-function addFile(id: string, owner: string, name: string, category: Category, blob: Blob) {
-  const cipherVersions = versions(blob.size);
-  const metadata: VaultFile = { id, display_name: name, category, mime_type: blob.type || 'application/octet-stream', original_bytes: blob.size, total_stored_bytes: cipherVersions.reduce((sum, v) => sum + v.stored_bytes, 0), status: 'ready', created_at: new Date().toISOString(), versions: cipherVersions };
-  files.set(id, { owner, metadata, blob }); return metadata;
-}
-addFile('11111111-1111-4111-8111-111111111111', demoUser.id, 'dokumen-contoh.pdf', 'document', simplePdf('VELTRIX: sample document, fictional data only.'));
-addFile('22222222-2222-4222-8222-222222222222', demoUser.id, 'catatan-eksperimen.pdf', 'document', simplePdf('Academic cipher comparison: AES, RC4, DES.'));
-const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII='), c => c.charCodeAt(0));
-addFile('33333333-3333-4333-8333-333333333333', demoUser.id, 'gambar-dummy.png', 'identity', new Blob([png], { type: 'image/png' }));
-const profileId = '44444444-4444-4444-8444-444444444444';
-profiles.set(demoUser.id, { owner: demoUser.id, metadata: { id: profileId, updated_at: new Date().toISOString(), versions: versions(new TextEncoder().encode(JSON.stringify(syntheticFields)).length), status: 'ready' }, fields: syntheticFields });
-
-function currentUser(): User | undefined {
-  const username = document.cookie.split('; ').find(v => v.startsWith('veltrix_demo_user='))?.split('=')[1];
-  return username ? accounts.get(decodeURIComponent(username))?.user : undefined;
-}
-function fail(status: number, code: string, message: string, field_errors?: Record<string, string[]>) {
-  return HttpResponse.json({ error: { code, message, field_errors, request_id: crypto.randomUUID() } }, { status, headers: { 'Cache-Control': 'no-store' } });
-}
-function sessionFailure() { return fail(401, 'SESSION_EXPIRED', 'Sesi berakhir. Silakan masuk kembali.'); }
-function notFound() { return fail(404, 'RESOURCE_NOT_FOUND', 'Data tidak ditemukan atau tidak dapat diakses.'); }
 function json(data: unknown, status = 200) { return new HttpResponse(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }); }
-function validRepetitions(n: unknown) { return Number.isInteger(n) && Number(n) >= 10 && Number(n) <= 30; }
-function stats(values: number[]) {
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const ordered = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(ordered.length / 2);
-  return { mean, median: ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2, sd: Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, values.length - 1)) };
+function fail(status: number, code: string, message: string, fields?: Record<string, string[]>) { return json({ error: { code, message, field_errors: fields, request_id: crypto.randomUUID() } }, status); }
+const unauthenticated = () => fail(401, 'SESSION_EXPIRED', 'Sesi berakhir. Silakan masuk kembali.');
+const denied = () => fail(403, 'ROLE_FORBIDDEN', 'Peran ini tidak memiliki akses ke tindakan tersebut.');
+const missing = () => fail(404, 'RESOURCE_NOT_FOUND', 'Pengajuan tidak ditemukan atau tidak dapat diakses.');
+function visible(stored: StoredCase, user: User) {
+  return user.role === 'applicant' ? stored.owner === user.id : user.role === 'reviewer' ? stored.application.assigned_reviewer_id === user.id && stored.application.status !== 'DRAFT' && stored.application.status !== 'WITHDRAWN' : false;
 }
-function csv(rows: (string | number | boolean)[][], name: string) {
-  const body = rows.map(row => row.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\r\n');
-  return new HttpResponse(body, { headers: { 'Content-Type': 'text/csv;charset=utf-8', 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'no-store' } });
+function view(stored: StoredCase, role: Role): Application {
+  const result = structuredClone(stored.application);
+  if (role !== 'applicant') result.evidence = result.evidence.map(({ display_name: _privateName, ...metadata }) => metadata);
+  return result;
+}
+function writable(stored: StoredCase, version: number) {
+  if (!editable(stored.application.status)) return fail(409, 'CASE_READ_ONLY', 'Pengajuan terkunci. Perubahan hanya diizinkan pada draf atau permintaan revisi.');
+  if (stored.application.version !== version) return fail(409, 'VERSION_CONFLICT', 'Pengajuan berubah di sesi lain. Muat ulang sebelum melanjutkan.');
+}
+function changed(stored: StoredCase, action: string, user: User, note?: string) { stored.application.version++; stored.application.updated_at = now(); stored.application.events.push(event(action, user.role, note)); }
+async function signatureValid(file: File) {
+  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const text = new TextDecoder().decode(bytes); const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return text.startsWith('%PDF-');
+  if (ext === 'png') return bytes[0] === 137 && text.slice(1, 4) === 'PNG';
+  if (ext === 'jpg' || ext === 'jpeg') return bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  if (ext === 'docx') return bytes[0] === 80 && bytes[1] === 75; // Backend must inspect the OOXML container.
+  if (ext === 'mp4') return text.slice(4, 8) === 'ftyp';
+  return false;
 }
 
 export const handlers = [
-  http.all('/api/v1/*', async ({ request }) => {
+  http.all('/api/v1/*', ({ request }) => {
     if (!['GET', 'HEAD'].includes(request.method) && request.headers.get('X-CSRF-Token') !== 'veltrix-mock-csrf') return fail(403, 'CSRF_INVALID', 'Sesi form tidak valid. Coba lagi.');
   }),
-  http.get('/api/v1/capabilities', () => json(limits)),
   http.get('/api/v1/auth/csrf', () => json({ token: 'veltrix-mock-csrf' })),
-  http.get('/api/v1/auth/me', async () => { await delay(120); return currentUser() ? json(currentUser()) : sessionFailure(); }),
+  http.get('/api/v1/auth/me', async () => { await delay(100); return currentUser() ? json(currentUser()) : unauthenticated(); }),
   http.post('/api/v1/auth/register', async ({ request }) => {
-    await delay(400);
     const { username, password } = await request.json() as { username: string; password: string };
-    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username) || password.length < 8) return fail(422, 'VALIDATION_ERROR', 'Periksa username dan password.', { username: ['Gunakan 3–24 huruf, angka, atau underscore.'] });
+    if (typeof username !== 'string' || !/^[a-zA-Z0-9_]{3,24}$/.test(username) || typeof password !== 'string' || password.length < 8) return fail(422, 'VALIDATION_ERROR', 'Periksa username dan password.');
     if (accounts.has(username)) return fail(409, 'USERNAME_TAKEN', 'Username sudah digunakan.', { username: ['Pilih username lain.'] });
-    const user = { id: crypto.randomUUID(), username }; accounts.set(username, { user, password }); return json(user, 201);
+    const user: User = { id: crypto.randomUUID(), username, display_name: username, role: 'applicant' };
+    accounts.set(username, { user, password }); return json(user, 201);
   }),
   http.post('/api/v1/auth/login', async ({ request }) => {
-    await delay(350);
-    const { username, password } = await request.json() as { username: string; password: string };
-    const account = accounts.get(username);
+    await delay(180); const { username, password } = await request.json() as { username: string; password: string }; const account = accounts.get(username);
     if (!account || account.password !== password) return fail(401, 'INVALID_CREDENTIALS', 'Username atau password tidak sesuai.');
-    document.cookie = `veltrix_demo_user=${encodeURIComponent(username)}; Path=/; SameSite=Lax`;
-    return json(account.user);
+    document.cookie = `veltrix_demo_user=${encodeURIComponent(username)}; Path=/; SameSite=Lax`; return json(account.user);
   }),
-  http.post('/api/v1/auth/logout', () => { document.cookie = 'veltrix_demo_user=; Max-Age=0; Path=/'; return new HttpResponse(null, { status: 204 }); }),
-  http.get('/api/v1/vault/summary', async () => {
-    await delay(180); const user = currentUser(); if (!user) return sessionFailure();
-    const owned = [...files.values()].filter(f => f.owner === user.id);
-    return json({ file_count: owned.length, original_bytes: owned.reduce((s, f) => s + f.metadata.original_bytes, 0), stored_bytes: owned.reduce((s, f) => s + f.metadata.total_stored_bytes, 0), personal_data_exists: profiles.has(user.id) });
+  http.post('/api/v1/auth/logout', () => { document.cookie = 'veltrix_demo_user=; Max-Age=0; Path=/; SameSite=Lax'; return new HttpResponse(null, { status: 204 }); }),
+  http.get('/api/v1/applications', async () => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (!['applicant', 'reviewer'].includes(user.role)) return denied();
+    await initFixtures(); await delay(120);
+    const items = [...cases.values()].filter(c => visible(c, user)).map(c => view(c, user.role)).sort((a, b) => b.updated_at.localeCompare(a.updated_at)); return json({ items, total: items.length });
   }),
-  http.get('/api/v1/vault/files', async ({ request }) => {
-    await delay(220); const user = currentUser(); if (!user) return sessionFailure();
-    const query = new URL(request.url).searchParams;
-    const owned = [...files.values()].filter(f => f.owner === user.id && (!query.get('category') || f.metadata.category === query.get('category')) && f.metadata.display_name.toLowerCase().includes((query.get('search') ?? '').toLowerCase())).map(f => f.metadata).reverse();
-    return json({ items: owned, page: 1, page_size: 50, total: owned.length });
+  http.post('/api/v1/applications', () => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'applicant') return denied();
+    const id = crypto.randomUUID(); const stamp = now();
+    const application: Application = { id, reference: `VTX-2026-${id.slice(0, 8).toUpperCase()}`, status: 'DRAFT', version: 1, created_at: stamp, updated_at: stamp, personal_data_complete: false, evidence: [], events: [event('Pengajuan dibuat', 'applicant')], synthetic_acknowledged: false };
+    cases.set(id, { owner: user.id, application, profile: null, blobs: new Map() }); return json(application, 201);
   }),
-  http.post('/api/v1/vault/files', async ({ request }) => {
-    const user = currentUser(); if (!user) return sessionFailure();
-    const form = await request.formData(); const file = form.get('file'); const category = form.get('category') as Category;
-    if (!(file instanceof File) || !['identity', 'document', 'video'].includes(category)) return fail(422, 'VALIDATION_ERROR', 'Pilih kategori dan file.');
-    if (file.size > limits.max_file_bytes) return fail(413, 'FILE_TOO_LARGE', 'Ukuran file melebihi batas 25 MB.', { file: ['Pilih file maksimal 25 MB.'] });
-    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-    const allowed = category === 'identity' ? ['jpg', 'jpeg', 'png'] : category === 'video' ? ['mp4'] : ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
-    if (!allowed.includes(extension)) return fail(415, 'UNSUPPORTED_FILE_TYPE', 'Format file tidak sesuai kategori.');
-    await delay(650); return json(addFile(crypto.randomUUID(), user.id, file.name, category, file), 201);
+  http.get('/api/v1/applications/:id', async ({ params }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id));
+    if (!stored || !visible(stored, user)) return missing(); await initFixtures(); return json(view(stored, user.role));
   }),
-  http.get('/api/v1/vault/files/:id/download', async ({ params, request }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const file = files.get(String(params.id));
-    if (!file || file.owner !== user.id) return notFound();
-    if (!ALGORITHMS.includes(new URL(request.url).searchParams.get('algorithm') as Algorithm)) return fail(422, 'VALIDATION_ERROR', 'Pilih algoritma yang valid.');
-    await delay(35);
-    return new HttpResponse(await file.blob.arrayBuffer(), { headers: { 'Content-Type': file.blob.type, 'Content-Disposition': 'attachment', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+  http.get('/api/v1/applications/:id/personal-data', ({ params }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id));
+    if (!stored || stored.owner !== user.id || user.role !== 'applicant') return missing(); return json({ profile: stored.profile });
   }),
-  http.get('/api/v1/vault/files/:id', async ({ params }) => {
-    await delay(150); const user = currentUser(); if (!user) return sessionFailure(); const file = files.get(String(params.id));
-    return file?.owner === user.id ? json(file.metadata) : notFound();
+  http.put('/api/v1/applications/:id/personal-data', async ({ params, request }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id));
+    if (!stored || stored.owner !== user.id || user.role !== 'applicant') return missing();
+    const { profile, version } = await request.json() as { profile: ApplicantProfile; version: number }; const error = writable(stored, version); if (error) return error;
+    const normalized = { ...blankProfile, ...profile }; if (Object.values(normalized).some(v => typeof v !== 'string')) return fail(422, 'VALIDATION_ERROR', 'Format data pribadi tidak valid.');
+    const errors = profileErrors(normalized);
+    if (Object.keys(errors).length) return fail(422, 'VALIDATION_ERROR', 'Periksa data pribadi dummy.', Object.fromEntries(Object.entries(errors).map(([k, v]) => [k, [v]])));
+    stored.profile = Object.fromEntries(Object.keys(blankProfile).map(key => [key, normalized[key as keyof ApplicantProfile]])) as unknown as ApplicantProfile;
+    stored.application.personal_data_complete = true; changed(stored, 'Data pribadi diperbarui', user); return json(view(stored, user.role));
   }),
-  http.delete('/api/v1/vault/files/:id', async ({ params }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const file = files.get(String(params.id));
-    if (file?.owner !== user.id) return notFound(); await delay(180); files.delete(String(params.id)); return new HttpResponse(null, { status: 204 });
+  http.post('/api/v1/applications/:id/evidence', async ({ params, request }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id));
+    if (!stored || stored.owner !== user.id || user.role !== 'applicant') return missing();
+    const form = await request.formData(); const category = form.get('category') as EvidenceCategory; const file = form.get('file');
+    const error = writable(stored, Number(form.get('version'))); if (error) return error;
+    if (!(category in evidenceRules) || !(file instanceof File)) return fail(422, 'INVALID_UPLOAD', 'Pilih kategori dan file yang valid.');
+    const invalid = fileError(file, category); if (invalid) return fail(422, 'INVALID_UPLOAD', invalid);
+    if (!(await signatureValid(file))) return fail(422, 'SIGNATURE_MISMATCH', 'Isi file tidak sesuai format. Gunakan berkas dummy yang valid.');
+    await delay(250);
+    const evidence: Evidence = { id: crypto.randomUUID(), category, version: 1 + stored.application.evidence.filter(e => e.category === category).length, display_name: file.name, original_bytes: file.size, mime_type: file.type || 'application/octet-stream', created_at: now(), validation: 'format_checked' };
+    stored.blobs.set(evidence.id, file); stored.application.evidence.push(evidence); changed(stored, `${evidenceRules[category].label} versi ${evidence.version} ditambahkan`, user); return json(view(stored, user.role), 201);
   }),
-  http.get('/api/v1/vault/personal-data', async () => { await delay(180); const user = currentUser(); return user ? json(profiles.get(user.id)?.metadata ?? null) : sessionFailure(); }),
-  http.post('/api/v1/vault/personal-data/:id/decrypt', async ({ params, request }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const profile = profiles.get(user.id);
-    if (!profile || profile.metadata.id !== params.id) return notFound();
-    const { algorithm } = await request.json() as { algorithm: Algorithm };
-    if (!ALGORITHMS.includes(algorithm)) return fail(422, 'VALIDATION_ERROR', 'Pilih algoritma yang valid.');
-    await delay(200); return json(profile.fields);
+  http.post('/api/v1/applications/:id/actions', async ({ params, request }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id)); if (!stored || !visible(stored, user)) return missing();
+    const { action, version, note, synthetic_acknowledged } = await request.json() as { action: CaseAction; version: number; note?: string; synthetic_acknowledged?: boolean };
+    const application = stored.application; if (application.version !== version) return fail(409, 'VERSION_CONFLICT', 'Pengajuan berubah. Muat ulang sebelum melanjutkan.');
+    const allowed: Partial<Record<CaseAction, Application['status']>> = {};
+    if (user.role === 'applicant') {
+      if (application.status === 'DRAFT') { allowed.submit = 'SUBMITTED'; allowed.withdraw = 'WITHDRAWN'; }
+      if (application.status === 'NEEDS_REVISION') { allowed.resubmit = 'RESUBMITTED'; allowed.withdraw = 'WITHDRAWN'; }
+    }
+    if (user.role === 'reviewer') {
+      if (application.status === 'SUBMITTED' || application.status === 'RESUBMITTED') allowed['start-review'] = 'UNDER_REVIEW';
+      if (application.status === 'UNDER_REVIEW') { allowed['request-revision'] = 'NEEDS_REVISION'; allowed.accept = 'ACCEPTED_DEMO'; allowed.reject = 'REJECTED_DEMO'; }
+    }
+    const target = allowed[action]; if (!target) return fail(409, 'INVALID_TRANSITION', 'Tindakan tidak tersedia pada status pengajuan saat ini.');
+    if (action === 'submit' || action === 'resubmit') { if (completeness(application) !== 4 || !synthetic_acknowledged) return fail(422, 'CASE_INCOMPLETE', 'Lengkapi empat kategori dan konfirmasi penggunaan data sintetis.'); application.synthetic_acknowledged = true; }
+    if (action === 'request-revision' || action === 'reject') {
+      if (typeof note !== 'string' || note.trim().length < 10 || note.length > 500) return fail(422, 'NOTE_REQUIRED', 'Tulis catatan operasional 10–500 karakter tanpa data pribadi.'); application.revision_note = note.trim();
+    }
+    application.status = target;
+    changed(stored, ({ submit: 'Pengajuan dikirim', resubmit: 'Pengajuan dikirim ulang', withdraw: 'Pengajuan ditarik', 'start-review': 'Tinjauan metadata dimulai', 'request-revision': 'Revisi diminta', accept: 'Pengajuan diterima', reject: 'Pengajuan ditolak' })[action], user, action === 'request-revision' || action === 'reject' ? note?.trim() : undefined);
+    return json(view(stored, user.role));
   }),
-  ...(['post', 'put'] as const).map(method => http[method](method === 'post' ? '/api/v1/vault/personal-data' : '/api/v1/vault/personal-data/:id', async ({ request, params }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const old = profiles.get(user.id);
-    if (method === 'post' && old) return fail(409, 'PROFILE_EXISTS', 'Profil sudah ada. Gunakan aksi edit.');
-    if (method === 'put' && old?.metadata.id !== params.id) return notFound();
-    const fields = await request.json() as PersonalFields;
-    if (!fields.full_name?.trim()) return fail(422, 'VALIDATION_ERROR', 'Nama lengkap wajib diisi.', { full_name: ['Masukkan nama lengkap.'] });
-    await delay(450);
-    const metadata: PersonalRecord = { id: old?.metadata.id ?? crypto.randomUUID(), updated_at: new Date().toISOString(), versions: versions(new TextEncoder().encode(JSON.stringify(fields)).length), status: 'ready' };
-    profiles.set(user.id, { owner: user.id, fields, metadata }); return json(metadata, method === 'post' ? 201 : 200);
-  })),
-  http.delete('/api/v1/vault/personal-data/:id', async ({ params }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); if (profiles.get(user.id)?.metadata.id !== params.id) return notFound();
-    profiles.delete(user.id); return new HttpResponse(null, { status: 204 });
+  http.get('/api/v1/applications/:id/evidence/:evidenceId/download', async ({ params }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id));
+    if (!stored || stored.owner !== user.id || user.role !== 'applicant') return missing(); await initFixtures(); const blob = stored.blobs.get(String(params.evidenceId)); if (!blob) return missing();
+    return new HttpResponse(await blob.arrayBuffer(), { headers: { 'Content-Type': blob.type || 'application/octet-stream', 'Content-Disposition': 'attachment', 'Cache-Control': 'no-store', 'X-Veltrix-Simulated': 'true' } });
   }),
-  http.post('/api/v1/benchmarks', async ({ request }) => {
-    const user = currentUser(); if (!user) return sessionFailure();
-    const { source, repetitions, warmups } = await request.json() as Pick<BenchmarkResult, 'source' | 'repetitions' | 'warmups'>;
-    if (!validRepetitions(repetitions) || warmups !== 2) return fail(422, 'VALIDATION_ERROR', 'Gunakan 10–30 pengulangan dan 2 warm-up.');
-    const file = files.get(source.id); const profile = profiles.get(user.id);
-    const length = source.type === 'file' && file?.owner === user.id ? file.blob.size : source.type === 'personal_data' && profile?.metadata.id === source.id ? new TextEncoder().encode(JSON.stringify(profile.fields)).length : null;
-    if (length === null) return notFound();
-    await delay(900);
-    const cipherVersions = versions(length);
-    const samples: CryptoSample[] = ALGORITHMS.flatMap((algorithm, ai) => Array.from({ length: repetitions }, (_, index) => ({ algorithm, repetition: index + 1, encrypt_ns: Math.round((150000 + length * (2 + ai * 0.8)) * (1 + ((index % 5) - 2) / 25)), decrypt_ns: Math.round((120000 + length * (1.8 + ai * 0.7)) * (1 + ((index % 3) - 1) / 20)), integrity_ns: 50000 + length, correctness_ns: 15000 + length, ciphertext_bytes: cipherVersions[ai].ciphertext_bytes, stored_bytes: cipherVersions[ai].stored_bytes, round_trip_ok: true })));
-    const result: BenchmarkResult = { id: crypto.randomUUID(), source, input_bytes: length, repetitions, warmups, created_at: new Date().toISOString(), environment: { mode: 'SIMULASI, bukan pengukuran kriptografi', timer: 'Generated fixture', storage: 'Browser memory' }, methodology_version: 'mock-v1', samples, summary: ALGORITHMS.map(algorithm => {
-      const rows = samples.filter(s => s.algorithm === algorithm); const enc = stats(rows.map(r => r.encrypt_ns)); const dec = stats(rows.map(r => r.decrypt_ns));
-      return { algorithm, mean_encrypt_ns: enc.mean, median_encrypt_ns: enc.median, stddev_encrypt_ns: enc.sd, mean_decrypt_ns: dec.mean, median_decrypt_ns: dec.median, stddev_decrypt_ns: dec.sd, round_trip_successes: repetitions, measured_runs: repetitions };
-    }) };
-    benchmarks.set(result.id, { owner: user.id, result }); return json(result, 201);
+  http.get('/api/v1/applications/:id/personal-data/download', ({ params }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); const stored = cases.get(String(params.id)); if (!stored || stored.owner !== user.id || user.role !== 'applicant' || !stored.profile) return missing();
+    return new HttpResponse(JSON.stringify(stored.profile, null, 2), { headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' } });
   }),
-  http.get('/api/v1/benchmarks', async () => { await delay(100); const user = currentUser(); return user ? json([...benchmarks.values()].filter(b => b.owner === user.id).map(b => b.result).reverse()) : sessionFailure(); }),
-  http.get('/api/v1/benchmarks/:id/export', ({ params }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const run = benchmarks.get(String(params.id)); if (run?.owner !== user.id) return notFound();
-    return csv([['mode', 'method', 'input_bytes', 'algorithm', 'repetition', 'encrypt_ns', 'decrypt_ns', 'integrity_ns', 'correctness_ns', 'ciphertext_bytes', 'stored_bytes', 'round_trip_ok'], ...run.result.samples.map(s => ['SIMULATED', run.result.methodology_version, run.result.input_bytes, s.algorithm, s.repetition, s.encrypt_ns, s.decrypt_ns, s.integrity_ns, s.correctness_ns, s.ciphertext_bytes, s.stored_bytes, s.round_trip_ok])], 'veltrix-simulated-crypto.csv');
+  http.get('/api/v1/admin/assignments', async () => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'admin') return denied(); await initFixtures();
+    return json({ items: [...cases.values()].filter(c => c.application.status !== 'DRAFT' && c.application.status !== 'WITHDRAWN').map(c => view(c, 'admin')), reviewers: demoAccounts.filter(u => u.role === 'reviewer').map(({ id, display_name }) => ({ id, display_name })) });
   }),
-  http.get('/api/v1/benchmarks/:id', async ({ params }) => { await delay(100); const user = currentUser(); if (!user) return sessionFailure(); const run = benchmarks.get(String(params.id)); return run?.owner === user.id ? json(run.result) : notFound(); }),
-  http.post('/api/v1/download-tests', async ({ request }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const { file_id, repetitions } = await request.json() as { file_id: string; repetitions: number };
-    if (files.get(file_id)?.owner !== user.id) return notFound(); if (!validRepetitions(repetitions)) return fail(422, 'VALIDATION_ERROR', 'Gunakan 10–30 pengulangan.');
-    const id = crypto.randomUUID(); downloadTests.set(id, { owner: user.id, file_id, repetitions, attempts: [] }); return json({ id }, 201);
+  http.put('/api/v1/admin/assignments/:id', async ({ params, request }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'admin') return denied(); const stored = cases.get(String(params.id)); if (!stored) return missing();
+    const { reviewer_id, version } = await request.json() as { reviewer_id: string; version: number };
+    if (version !== stored.application.version) return fail(409, 'VERSION_CONFLICT', 'Penugasan berubah. Muat ulang.');
+    if (!['SUBMITTED', 'RESUBMITTED'].includes(stored.application.status)) return fail(409, 'ASSIGNMENT_LOCKED', 'Penugasan hanya dapat diubah sebelum tinjauan dimulai.');
+    if (!demoAccounts.some(u => u.role === 'reviewer' && u.id === reviewer_id)) return fail(422, 'INVALID_REVIEWER', 'Pilih reviewer yang tersedia.');
+    stored.application.assigned_reviewer_id = reviewer_id; changed(stored, 'Reviewer ditugaskan', user); return json(view(stored, 'admin'));
   }),
-  http.post('/api/v1/download-tests/:id/results', async ({ params, request }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const run = downloadTests.get(String(params.id)); if (run?.owner !== user.id) return notFound();
-    const { attempts } = await request.json() as { attempts: DownloadAttempt[] };
-    if (!Array.isArray(attempts) || attempts.length > run.repetitions * 3 || attempts.some(a => !ALGORITHMS.includes(a.algorithm) || !Number.isFinite(a.elapsed_ms) || a.elapsed_ms < 0)) return fail(422, 'VALIDATION_ERROR', 'Sample download tidak valid.');
-    run.attempts = attempts; return json({ id: params.id });
+  http.get('/api/v1/lab/runs', () => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'evaluator') return denied(); return json([...labRuns.values()].filter(v => v.owner === user.id).map(v => v.run));
   }),
-  http.get('/api/v1/download-tests/:id/export', ({ params }) => {
-    const user = currentUser(); if (!user) return sessionFailure(); const run = downloadTests.get(String(params.id)); if (run?.owner !== user.id) return notFound();
-    return csv([['mode', 'algorithm', 'repetition', 'elapsed_ms', 'received_bytes', 'success', 'error_code'], ...run.attempts.map(a => ['CLIENT-MEASURED-MOCK', a.algorithm, a.repetition, a.elapsed_ms, a.received_bytes, a.success, a.error_code ?? ''])], 'veltrix-mock-download.csv');
+  http.post('/api/v1/lab/runs', async ({ request }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'evaluator') return denied();
+    const { kind, fixture, repetitions, warmups } = await request.json() as { kind: LabRun['kind']; fixture: string; repetitions: number; warmups: number };
+    if (!['benchmark', 'verification'].includes(kind) || !['personal-json', 'identity-png', 'document-pdf', 'video-mp4'].includes(fixture) || !Number.isInteger(repetitions) || repetitions < 30 || repetitions > 100 || warmups !== 2) return fail(422, 'INVALID_EXPERIMENT', 'Gunakan fixture lab dan 30–100 pengulangan dengan 2 warm-up.');
+    await delay(700);
+    const run: LabRun = { id: crypto.randomUUID(), kind, fixture, repetitions, warmups, status: 'completed', simulated: true, created_at: now(), rows: ['AES-256-GCM', 'DES-CBC', 'RC4', 'Pipeline berlapis'].map((algorithm, i) => ({ algorithm, encrypt_ms: [1.2, 4.8, 0.9, 6.9][i], decrypt_ms: [1.1, 4.6, 0.9, 6.6][i], iqr_ms: [0.2, 0.5, 0.1, 0.7][i], overhead_bytes: [28, 16, 0, 52][i], round_trip_ok: true })) };
+    labRuns.set(run.id, { owner: user.id, run }); return json(run, 201);
+  }),
+  http.get('/api/v1/lab/runs/:id/export', ({ params }) => {
+    const user = currentUser(); if (!user) return unauthenticated(); if (user.role !== 'evaluator') return denied(); const entry = labRuns.get(String(params.id)); if (!entry || entry.owner !== user.id) return missing();
+    const body = ['SIMULATED DATA - NOT VALID EXPERIMENTAL EVIDENCE', 'algorithm,encrypt_median_ms,decrypt_median_ms,encrypt_iqr_ms,overhead_bytes,round_trip_simulated,fixture,repetitions,warmups', ...entry.run.rows.map(row => [row.algorithm, row.encrypt_ms, row.decrypt_ms, row.iqr_ms, row.overhead_bytes, row.round_trip_ok, entry.run.fixture, entry.run.repetitions, entry.run.warmups].join(','))].join('\r\n');
+    return new HttpResponse(body, { headers: { 'Content-Type': 'text/csv;charset=utf-8', 'Cache-Control': 'no-store' } });
   }),
 ];

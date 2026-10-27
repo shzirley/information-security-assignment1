@@ -4,18 +4,18 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ChartNoAxesCombined, FolderClosed, LayoutDashboard, LogOut, Menu, Moon, Sun, UserRound, X } from 'lucide-react';
+import { ChartNoAxesCombined, ClipboardCheck, FlaskConical, LayoutDashboard, ListChecks, LogOut, Menu, Moon, Sun, UsersRound, X } from 'lucide-react';
 import { api, clearApiSession } from '@/lib/api';
-import { isMock } from '@/lib/contracts';
-import { ErrorState, LoadingState, MockNote } from './ui';
+import { roleHome, roleLabels } from '@/lib/kyc';
+import { ErrorState, LoadingState } from './ui';
 import { BrandLogo } from './brand-logo';
 
-const navigation = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, index: '01' },
-  { href: '/personal-data', label: 'Data Pribadi', icon: UserRound, index: '02' },
-  { href: '/vault', label: 'File Vault', icon: FolderClosed, index: '03' },
-  { href: '/lab', label: 'Cryptography Lab', icon: ChartNoAxesCombined, index: '04' },
-];
+const navigationByRole = {
+  applicant: [{ href: '/applicant/dashboard', label: 'Ringkasan', icon: LayoutDashboard, index: '01' }, { href: '/applicant/applications', label: 'Pengajuan saya', icon: ListChecks, index: '02' }],
+  reviewer: [{ href: '/reviewer/queue', label: 'Antrean tinjauan', icon: ClipboardCheck, index: '01' }],
+  admin: [{ href: '/admin/assignments', label: 'Penugasan reviewer', icon: UsersRound, index: '01' }],
+  evaluator: [{ href: '/lab/benchmark', label: 'Benchmark cipher', icon: ChartNoAxesCombined, index: '01' }, { href: '/lab/verification', label: 'Verifikasi integritas', icon: FlaskConical, index: '02' }],
+};
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
   useEffect(() => { setDark(document.documentElement.dataset.theme === 'dark'); }, []);
@@ -53,27 +53,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     try { await api.logout(); client.clear(); clearApiSession(); router.replace('/login'); }
     catch (e) { setLogoutError(e instanceof Error ? e : new Error('Logout gagal. Coba lagi.')); setLoggingOut(false); }
   };
+  const navigation = navigationByRole[session.data.role];
   const current = navigation.find(n => path.startsWith(n.href));
+  const requiredRole = path.startsWith('/applicant') ? 'applicant' : path.startsWith('/reviewer') ? 'reviewer' : path.startsWith('/admin') ? 'admin' : path.startsWith('/lab') ? 'evaluator' : null;
+  const permitted = !requiredRole || requiredRole === session.data.role;
   return <div className="app-shell"><a className="skip-link" href="#main-content">Langsung ke konten</a>
     {menu && <button className="sidebar-scrim" aria-label="Tutup menu navigasi" onClick={() => setMenu(false)} />}
     <aside ref={sidebar} id="workspace-navigation" className={`sidebar ${menu ? 'sidebar-open' : ''}`}>
       <div className="sidebar-brand">
-        <Link href="/dashboard" className="brand-link" aria-label="VELTRIX"><BrandLogo inverse /></Link>
+        <Link href={roleHome[session.data.role]} className="brand-link" aria-label="VELTRIX"><BrandLogo inverse /></Link>
         <button className="icon-button mobile-only" aria-label="Tutup menu" onClick={() => setMenu(false)}><X size={20} /></button>
       </div>
-      <p className="sidebar-caption">Personal data vault</p>
-      <div className="nav-heading">Workspace</div>
+      <p className="sidebar-caption">Pengajuan BankKYC</p>
+      <div className="nav-heading">{roleLabels[session.data.role]}</div>
       <nav aria-label="Navigasi utama">
         {navigation.map(n => <Link key={n.href} href={n.href} className={`nav-item ${path.startsWith(n.href) ? 'active' : ''}`} aria-current={path.startsWith(n.href) ? 'page' : undefined}>
           <n.icon size={19} aria-hidden="true" /><span>{n.label}</span><span className="nav-index" aria-hidden="true">{n.index}</span>
         </Link>)}
       </nav>
       <div className="sidebar-bottom">
-        <div className="cipher-ledger"><span>AES</span><span>RC4</span><span>DES</span></div>
-        <p>Tiga representasi.<br />Satu sumber data.</p>
-        <div className="academic-label">Proyek akademik · v0.1</div>
+        <div className="cipher-ledger"><span>RC4</span><span>DES</span><span>AES</span></div>
+        <p>Satu pengajuan.<br />Bukti yang terhubung.</p>
+        <Link href="/" className="sidebar-home">Tentang VELTRIX ↗</Link>
+        <div className="sidebar-caption-bottom">Pengelolaan pengajuan KYC</div>
       </div>
     </aside>
-    <div className="workspace"><div className="topbar"><div className="topbar-start"><button className="icon-button mobile-only" aria-label="Buka menu" aria-controls="workspace-navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={21} /></button><span className="breadcrumb">Workspace <span>/</span> <strong>{current?.label ?? 'Detail'}</strong></span></div><div className="topbar-actions">{isMock && <span className="mode-indicator">Mode demo</span>}<ThemeToggle /><div className="user-identity"><span className="avatar-initial">{session.data.username.slice(0, 1).toUpperCase()}</span><span>{session.data.username}</span></div><button className="icon-button" disabled={loggingOut} aria-label="Keluar" onClick={logout}><LogOut size={19} /></button></div></div><main id="main-content" className="main-content">{logoutError && <ErrorState error={logoutError} retry={logout} />}{children}<footer className="workspace-footer"><span>VELTRIX / Academic cryptography project</span><span>AES-CBC · RC4 · DES-CBC</span></footer></main><div className="workspace-demo-footer"><MockNote compact /></div></div>
+    <div className="workspace"><div className="topbar"><div className="topbar-start"><button className="icon-button mobile-only" aria-label="Buka menu" aria-controls="workspace-navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={21} /></button><span className="breadcrumb">{roleLabels[session.data.role]} <span>/</span> <strong>{current?.label ?? 'Detail pengajuan'}</strong></span></div><div className="topbar-actions"><ThemeToggle /><div className="user-identity"><span className="avatar-initial">{session.data.display_name.slice(0, 1).toUpperCase()}</span><span>{session.data.display_name}</span></div><button className="icon-button" disabled={loggingOut} aria-label="Keluar" onClick={logout}><LogOut size={19} /></button></div></div><main id="main-content" className="main-content">{logoutError && <ErrorState error={logoutError} retry={logout} />}{permitted ? children : <section className="panel access-denied"><h1>Akses dibatasi</h1><p>Halaman ini tersedia untuk peran {requiredRole && roleLabels[requiredRole]}. Kamu masuk sebagai {roleLabels[session.data.role]}.</p><Link href={roleHome[session.data.role]} className="button">Kembali ke halaman saya</Link></section>}<footer className="workspace-footer"><span>VELTRIX / BankKYC</span><span>Data sintetis · Akses sesuai peran</span></footer></main></div>
   </div>;
 }

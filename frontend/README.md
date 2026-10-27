@@ -1,46 +1,53 @@
-# VELTRIX frontend
+# VELTRIX BankKYC frontend
 
-Next.js App Router + TypeScript + Tailwind CSS. The included backend is Python FastAPI + SQLAlchemy, supporting SQLite locally and MySQL through configuration. See the root README to start both servers in live mode.
+Next.js App Router + TypeScript + Tailwind v4. Identitas GSM lama dipertahankan; alur vault diganti pengajuan KYC. Spesifikasi lengkap: [PRD frontend](../VELTRIX_BankKYC_FE_PRD.md).
 
-## Run locally
-
-From `D:\Kuliah\SMT5\KI\assignment1\frontend`:
+## Run
 
 ```powershell
-npm.cmd install
+npm.cmd ci
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm.cmd run dev
 ```
 
-Open http://127.0.0.1:3000. On Windows, `npm.cmd` works when PowerShell blocks `npm.ps1`.
+Buka http://127.0.0.1:3000. Jika konfigurasi sudah ada, atur `NEXT_PUBLIC_API_MODE=mock` tanpa menimpa nilai lain. Restart/rebuild setelah mengganti mode. PowerShell memakai `npm.cmd` untuk menghindari pembatasan `npm.ps1`.
 
-In mock mode only, use **Gunakan akun demo**, or login with `demo_user` / `veltrix123`. The demo account includes two generated sample PDFs, one small PNG, and a fictional profile. Create an account to try empty states. Mock registration and uploads are session-memory fixtures; a full page reload resets them. The default demo cookie identifies a prototype user and provides no real security.
+Mode mock memuat MSW sebelum interaksi. Untuk pengembangan, masukkan kredensial akun fixture: `demo_user`, `reviewer_demo`, `admin_demo`, atau `evaluator_demo`, password `veltrix123`. Untuk menguji batas assignment, `reviewer_other` juga tersedia; `other_applicant` adalah pemilik kasus lain. Registrasi hanya membuat pemohon. Akun baru dan perubahan upload/status hanya berada dalam memori, hilang saat full reload. Cookie demo bukan autentikasi yang aman.
 
-## Frontend flows (real API in live mode, fixtures in mock mode)
+Tampilan memakai bahasa tugas pengguna, animasi headline tanpa tombol/tulisan tambahan, dan login username/password tanpa pintasan akun latihan. Peran selalu mengikuti respons login. Label FE, API mock/live, akademik/tugas, dan detail implementasi tidak menjadi dekorasi antarmuka. Batas penyimpanan sementara/belum dienkripsi tetap dinyatakan pada pemberitahuan data; hasil lab dan CSV tetap ditandai simulasi.
 
-- Landing, register, login, logout, and session-expired redirect.
-- Dashboard derived from the current mock records.
-- Personal profile creation, validation, reveal/hide, algorithm selection, edit, and confirmed delete.
-- Vault search/category filters, single-file upload, validation, detail, three retrieval routes, and confirmed delete.
-- Benchmark settings, simulated crypto results, charts, comparison table, history, and raw CSV export.
-- Repeated download receipt timing through the mock API, cancellation, success statistics, and CSV export.
-- Light/dark themes, mobile navigation, keyboard-operated dialogs, and reduced motion.
+## Routes and implementation
 
-**Mock limitations:** uploaded bytes remain unencrypted in browser memory to test file retrieval. Cipher samples, storage estimates, and crypto timings are generated fixtures and visibly labeled simulated. Download duration measures the mock browser request path, not a FastAPI crypto engine. The mock validates extensions and size. The included backend implements real sessions, ownership, MACs, transactional writes and encryption; deep content validation and malware scanning remain outside the academic MVP scope. Do not put real personal data in the demo or use fixture results in the assignment report.
+- `/`: landing BankKYC, headline berganti otomatis, scroll-linked assembly empat bukti, alur dan ledger hak akses. Tidak ada tombol jeda atau teks tambahan di bawah hero. Hover/fokus menghentikan rotasi sementara; reduced motion menampilkan teks tetap.
+- `/register`, `/login`: registrasi, login username/password, password visibility, session expiry.
+- `/applicant/dashboard`, `/applicant/applications`: ringkasan dan pengajuan sendiri, next action, cari/filter.
+- `/applicant/applications/new`, `/[id]/edit`: persiapan dan wizard profil, identitas, dokumen, video, review/submit.
+- `/applicant/applications/[id]`: metadata, owner-only reveal/preview/download, versi dan timeline, penarikan pada status yang diizinkan.
+- `/reviewer/queue`, `/reviewer/applications/[id]`: metadata pengajuan ditugaskan, mulai/revisi/terima/tolak demo.
+- `/admin/assignments`: penugasan reviewer sebelum tinjauan.
+- `/lab/benchmark`, `/lab/verification`: fixture terpisah, konfigurasi, hasil/riwayat/CSV simulasi dan gate verifikasi yang belum dijalankan server.
 
-`public/mockServiceWorker.js` intentionally keeps its registration across full reloads. MSW's default immediate self-unregister on `CLIENT_CLOSED` can race the next page's background `update()` in Edge and produce a NotFound rejection. Inactive clients still bypass mocking; this does not retain user files or profiles. Regenerating the worker with the MSW CLI resets this small lifecycle adjustment.
+Legacy `/dashboard` mengarahkan sesuai role; `/vault` dan `/personal-data` menuju daftar pengajuan, `/lab` menuju benchmark. Tidak ada pemilih cipher pada retrieval operasional.
 
-## Connect the included FastAPI backend
+`src/lib/kyc.ts` adalah domain model/validasi; `kyc-api.ts` kontrak pengajuan; `api.ts` transport/session/CSRF/error. `features/kyc/` berisi halaman interaktif. Struktur `components/ui/`, `components.json`, dan `lib/utils.ts` mendukung pola komposisi shadcn; Button memakai Slot/CVA, dialog Radix, dan motion Framer. Lihat [referensi dan provenance](REFERENCES.md).
 
-Copy `.env.example` to `.env.local` and set:
+## Mock boundaries
 
-```dotenv
-NEXT_PUBLIC_API_MODE=live
-API_ORIGIN=http://127.0.0.1:8000
-```
+Blob asli berada **tanpa enkripsi** di memori browser. Retrieval mengembalikan byte tersebut untuk menguji interaksi/transport; tidak membuktikan cipher. Mock memeriksa extension/size dan signature dasar, bukan validasi DOCX mendalam atau deteksi malware. Dataset video awal adalah MP4 H.264 sintetis 10 detik yang valid. Profil dummy tidak berisi data nyata.
 
-Restart/rebuild Next.js after changing mode. Live mode skips MSW and forwards `/api/v1/*` to FastAPI. The included `../backend` implements the contract in `src/lib/contracts.ts` and `src/lib/api.ts`. Start it on port 8000 before using live mode. CSRF tokens are retrieved before mutations; all requests include credentials. Personal plaintext is kept in component state, not in query cache or browser storage.
+Role/ownership/assignment/status/version diperagakan di API mock. Hal ini bukan kontrol keamanan server. Lab menggunakan angka ilustrasi tetap; fixture/pengulangan tidak mengubah angka mock. CSV berlabel SIMULATED. Hash, raw samples, throughput, memori, lingkungan eksekusi dan tamper tests backend belum diukur. Jangan memakai hasil mock untuk laporan.
 
-The profile layout and file storage model follow the blueprint. The database choice has been updated to MySQL in the PRD and blueprint. UI primitives use Radix Dialog with component styles, following the accessible compositional approach used by shadcn/ui.
+Preferensi tema saja disimpan di localStorage. Profil detail diminta ketika pemilik menekan lihat, lalu dibersihkan ketika dialog ditutup. Cache form edit sementara memakai gcTime 0; logout/session expiry menghapus query cache. Blob preview URL dicabut setelah ditutup. Navigasi link/reload memperingatkan perubahan belum disimpan; browser history belum memiliki blocking penuh.
+
+`public/mockServiceWorker.js` mempertahankan registration ketika `CLIENT_CLOSED` untuk menghindari race `update()` pada full reload di Edge. Client yang tidak mengaktifkan MSW tetap bypass; fix ini tidak mempersist data. Metadata `msw.workerDirectory` sengaja tidak diset agar postinstall tidak menimpa worker yang dikelola di repo. Saat menaikkan versi MSW, regenerasi worker secara manual, tinjau perubahan upstream, lalu terapkan kembali penyesuaian lifecycle ini dan jalankan tes reload.
+
+## Backend integration status
+
+**Backend di `../backend` masih versi vault lama.** Ia tidak menyediakan role/display_name, case/assignment endpoints, AES-GCM layered envelope atau lab fixture contract baru. Jangan menyalakan mode live untuk demo baru sampai kontraknya diimplementasikan. Session legacy ditolak FE dengan pesan kontrak, bukan diasumsikan kompatibel.
+
+Untuk implementasi BE berikutnya: prefix `/api/v1`, same-origin credentials, CSRF mutation, owner dari session, reviewer scope server, no-store, expected version/409, dan satu retrieval berlapis sementara sesuai D-01. MySQL tetap target database. Proxy FE 34 MiB mendukung rencana MP4 30 MiB plus multipart, tetapi limit BE/storage harus diselaraskan.
+
+Mode live kelak memakai `NEXT_PUBLIC_API_MODE=live`, `API_ORIGIN=http://127.0.0.1:8000`, restart/rebuild. Ini konfigurasi integrasi, bukan klaim endpoint baru sudah tersedia.
 
 ## Verify
 
@@ -50,12 +57,10 @@ npm.cmd run typecheck
 npm.cmd run test:e2e
 ```
 
-The original mock-only Playwright suite uses installed Microsoft Edge and starts an isolated production server on port 3100 for the test run, keeping the user's development server on port 3000 separate. Override the browser channel in `playwright.config.ts` if using another Chromium installation. These tests require a successful build with NEXT_PUBLIC_API_MODE=mock first; they intentionally expect simulation labels and demo accounts. Live integration is tested by ../backend/scripts/smoke_live.py. HTML results are in `playwright-report/`; screenshots are in `artifacts/`.
+Playwright memulai server production di port 3100 dan memakai Microsoft Edge terpasang. Sesuaikan channel bila browser berbeda. Harus build mock lebih dulu. HTML report di `playwright-report/`, screenshot terbaru `artifacts/bankkyc-*`; screenshot lama vault disimpan sebagai riwayat dan tidak merepresentasikan FE baru.
 
-Design reasons and antislop dials are recorded in `DESIGN.md`. Final delivery-gate evidence is in `ANTISLOP_QA.md`.
+[DESIGN.md](DESIGN.md) mencatat alasan visual dan dials antislop. [ANTISLOP_QA.md](ANTISLOP_QA.md) mencatat hasil dan coverage aktual.
 
-## Brand identity
+## Brand
 
-The UI follows the supplied VELTRIX brand board: Midnight Blue, Royal Blue, Indigo, Cyan, Cloud, Charcoal, Montserrat headings, and Inter body text. `../VELTRIX_GSM_v0.1.md` records implementation rules and asset provenance. The web logo is an SVG reconstruction of the PNG reference, not the original design master.
-
-Use `/brand/preview.html` for standalone logo previews/downloads. A reusable `BrandLogo` appears on landing, auth, sidebar, loading, and not-found screens; `/icon.svg` is the browser icon. The six primary/stacked lockups embed Montserrat/Inter fonts. Run `node scripts/build-brand-assets.mjs` to regenerate derivative brand assets after an intentional symbol update.
+[GSM v0.1](../VELTRIX_GSM_v0.1.md) tetap sumber warna/logo/font. Simbol SVG adalah rekonstruksi referensi PNG, bukan master artwork. `/brand/preview.html` menyediakan katalog aset. `BrandLogo` dipakai bersama pada landing/auth/sidebar/loading/not-found. Script `scripts/build-brand-assets.mjs` hanya menghasilkan turunan SVG/font merek, bukan patch UI.
