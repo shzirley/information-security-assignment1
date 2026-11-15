@@ -1,0 +1,5 @@
+# Additional dependencies for Local OCR and Document Analysis (Jorell)
+python-docx>=1.1.0
+pypdfium2>=4.30.0
+paddlepaddle>=3.3.0
+paddleocr>=3.7.0
