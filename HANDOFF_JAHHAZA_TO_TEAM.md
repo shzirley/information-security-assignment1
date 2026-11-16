@@ -1,6 +1,6 @@
-# Handoff backend VELTRIX BankKYC
+# Handoff Jahhaza — VELTRIX BankKYC
 
-Pekerjaan ini melanjutkan ZIP serah terima Jorell dan mengikuti bagian B (Caca, Backend Lead & System Integration) sebagai cakupan Jahazza. Entry point aktif adalah `backend/app/server.py`. Seluruh skenario demo memakai data sintetis.
+Jahhaza mengerjakan bagian B (Caca, Backend Lead & System Integration) pada revisi Assignment 1. Pekerjaan ini melanjutkan baseline Jorell dengan mengintegrasikan modul analisis dokumen ke API dan alur reviewer. Branch kerja kontribusi ini adalah `jahhaza`. Entry point aktif adalah `backend/app/server.py`. Seluruh skenario demo memakai data sintetis.
 
 ## Cara menjalankan di Windows
 

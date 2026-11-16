@@ -24,7 +24,7 @@ The Next.js frontend connects to the **FastAPI BankKYC v2 backend in live mode**
 
 Browser mocks remain available for isolated interface tests. Their temporary data and illustrative measurements are separate from the live backend. The older vault implementation remains in `backend/app/main.py` for reference and regression tests; the active entry point is `app.server:app`.
 
-See [the backend integration handoff](docs/verification/JAHHAZZA_BACKEND_HANDOFF.md) for the review API contract, migration, and verification results.
+See [the backend integration handoff](HANDOFF_JAHHAZA_TO_TEAM.md) for the review API contract, migration, and verification results.
 
 ## Architecture
 

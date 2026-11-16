@@ -110,7 +110,7 @@ Sesi berupa token acak HttpOnly; DB hanya menyimpan hash SHA-256. CSRF signed do
 
 Alur status: DRAFT → SUBMITTED → UNDER_REVIEW → ACCEPTED_DEMO/REJECTED_DEMO, atau UNDER_REVIEW → NEEDS_REVISION → RESUBMITTED → UNDER_REVIEW. Withdrawal hanya DRAFT/NEEDS_REVISION. Penugasan manual admin hanya pada SUBMITTED/RESUBMITTED. Semua transisi lain ditolak tanpa perubahan sebagian.
 
-Rincian payload, kode respons, dan panduan demo ada pada [handoff integrasi backend](../docs/verification/JAHHAZZA_BACKEND_HANDOFF.md).
+Rincian payload, kode respons, dan panduan demo ada pada [handoff integrasi backend](../HANDOFF_JAHHAZA_TO_TEAM.md).
 
 ## Format, enkripsi dan lab
 
