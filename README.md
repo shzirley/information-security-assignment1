@@ -2,7 +2,7 @@
 
 **A KYC onboarding application with encrypted evidence storage and a cryptography laboratory.**
 
-VELTRIX models the document preparation and review stages of opening a bank account. Applicants assemble a personal profile, identity scan, supporting office document, and verification video into one application. Reviewers check assigned applications for completeness, administrators manage assignments, and evaluators compare cryptographic algorithms using separate synthetic fixtures.
+VELTRIX models the document preparation and review stages of opening a bank account. Applicants assemble a personal profile, identity scan, supporting office document, and verification video into one application. Reviewers inspect documents and record decisions on assigned applications, administrators manage assignments, and evaluators compare cryptographic algorithms using separate synthetic fixtures.
 
 This is an **Information Security group assignment using synthetic data only**. Decisions represent an academic onboarding workflow; they do not open a bank account or establish an identity's authenticity. DES and RC4 are included for academic comparison and are not recommended for protecting real-world banking data.
 
@@ -18,10 +18,13 @@ The Next.js frontend connects to the **FastAPI BankKYC v2 backend in live mode**
 | Deployment database | MySQL through SQLAlchemy/PyMySQL; configured separately from SQLite |
 | Access control | Session authentication, roles, ownership, reviewer assignment, and application-state checks |
 | Stored evidence | Versioned encrypted envelopes with authenticated recovery and per-object keys |
+| Document review | Assigned reviewer preview, versioned checklists, encrypted local analysis |
 | Laboratory | Actual measurements, raw samples, result history, and CSV exports |
 | Public deployment | Being prepared; no verified public endpoint is documented yet |
 
 Browser mocks remain available for isolated interface tests. Their temporary data and illustrative measurements are separate from the live backend. The older vault implementation remains in `backend/app/main.py` for reference and regression tests; the active entry point is `app.server:app`.
+
+See [the backend integration handoff](docs/verification/JAHHAZZA_BACKEND_HANDOFF.md) for the review API contract, migration, and verification results.
 
 ## Architecture
 
@@ -42,7 +45,7 @@ flowchart LR
     Secrets[Server-side key configuration] --> Crypto
 ```
 
-The backend enforces permissions and state transitions independently of the interface. Private filenames, profiles, file contents, and review notes are encrypted before database storage. Operational fields such as case references, roles, categories, sizes, versions, and status support authorization and indexing.
+The backend enforces permissions and state transitions independently of the interface. Private filenames, profiles, file contents, checklists, review notes, and analysis results are encrypted before database storage. Operational fields such as case references, roles, categories, sizes, versions, and status support authorization and indexing.
 
 Writes use transactions and expected-version checks. Conflicting updates return `409 VERSION_CONFLICT` rather than silently overwriting another change. Replacing evidence creates a new version and preserves previous versions for the owner.
 
@@ -53,7 +56,7 @@ Access combines **RBAC with ownership, assignment, and state-based checks**. A r
 | Role | Responsibilities | Access boundary |
 | --- | --- | --- |
 | Applicant | Create applications, complete evidence, submit revisions, track decisions, retrieve versions | Own applications and evidence only |
-| Reviewer | Check completeness, start reviews, request revisions, accept or reject | Assigned operational metadata; no applicant profile, private filename, preview, or download |
+| Reviewer | Inspect submitted documents, record checks, and request revision or decide | Assigned active cases, latest evidence previews and four profile fields |
 | Administrator | Assign or reassign a reviewer before review begins | Assignment metadata; no applicant plaintext or application decisions |
 | Evaluator | Run benchmarks and recovery checks; view and export results | Isolated synthetic fixtures and the evaluator's own laboratory results |
 
@@ -63,10 +66,10 @@ Public registration always creates an **applicant**. Other roles are provisioned
 
 1. **Register or sign in.** The authenticated account determines the workspace and permissions.
 2. **Create a draft.** Complete a five-step wizard: profile, identity scan, supporting document, verification video, and final review.
-3. **Save each step.** Profile changes require saving; selecting a file does not upload it. All four evidence categories and the synthetic-data acknowledgement are required before submission.
+3. **Save each step.** Profile changes require saving; selecting a file does not upload it. A profile, dummy KTP, account-opening form, synthetic MP4, and synthetic-data acknowledgement are required. The API also accepts optional dummy KK evidence.
 4. **Submit.** Evidence becomes read-only while the application is being processed.
-5. **Assign a reviewer.** An administrator assigns the application. The reviewer examines category, size, version, and completeness metadata.
-6. **Review and revise.** The reviewer requests a revision or records a decision. Revisions reopen applicant editing; replacement evidence adds a version before resubmission.
+5. **Assign a reviewer.** An administrator assigns the application. The reviewer opens the latest evidence and the minimum applicant profile for comparison.
+6. **Review and revise.** The reviewer saves a checklist and enters a decision reason. Revisions reopen applicant editing, and replacements add an evidence version before resubmission.
 7. **Retrieve evidence.** The owner can preview or download available versions after authorization and integrity checks succeed.
 
 ```mermaid

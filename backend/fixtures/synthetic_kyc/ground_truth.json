@@ -1,0 +1,266 @@
+{
+  "metadata": {
+    "project": "VELTRIX BankKYC - Assignment 1 Revision",
+    "description": "Ground Truth evaluation dataset for synthetic KYC evidence and document analysis",
+    "reference_standard": "UU PDP No. 27/2022 & Academic BankKYC Simulation",
+    "primary_matching_applicant": "PUPUT NUGROHO",
+    "created_at": "2026-11-16"
+  },
+  "ktp_fixtures": {
+    "ktp_0001_clear.png": {
+      "filename": "ktp_0001_clear.png",
+      "variant": "clear",
+      "expected_document_type": "ktp",
+      "expected_outcome": "MATCH",
+      "fields": {
+        "full_name": "PUPUT NUGROHO",
+        "identity_number": "2912541012827585",
+        "birth_place": "SURABAYA",
+        "date_of_birth_raw": "27-01-1950",
+        "date_of_birth": "1950-01-27",
+        "gender": "PEREMPUAN",
+        "address": "GANG PHH. MUSTOFA NO. 2",
+        "rt_rw": "010/020",
+        "kel_desa": "PALANGKARAYA",
+        "kecamatan": "BALIKPAPAN",
+        "kota_kabupaten": "KOTA TANJUNGPINANG",
+        "provinsi": "SUMATERA UTARA",
+        "occupation": "TIDAK BEKERJA"
+      },
+      "comparison_vs_primary_form": {
+        "full_name": "MATCH",
+        "identity_number": "MATCH",
+        "date_of_birth": "MATCH",
+        "overall": "MATCH"
+      },
+      "notes": "Primary applicant fixture. Matches Puput Nugroho bank account opening form perfectly."
+    },
+    "ktp_0002_clear.png": {
+      "filename": "ktp_0002_clear.png",
+      "variant": "clear",
+      "expected_document_type": "ktp",
+      "expected_outcome": "CLEAR_READABLE",
+      "fields": {
+        "full_name": "TIRTA SITOMPUL",
+        "identity_number": "9219782108637946",
+        "birth_place": "TANJUNGBALAI",
+        "date_of_birth_raw": "25-03-1947",
+        "date_of_birth": "1947-03-25",
+        "gender": "LAKI-LAKI",
+        "address": "GANG CIWASTRA NO. 82",
+        "rt_rw": "016/012",
+        "kel_desa": "AMBON",
+        "kecamatan": "BENGKULU",
+        "kota_kabupaten": "KABUPATEN TEGAL",
+        "provinsi": "DI YOGYAKARTA",
+        "occupation": "PELAJAR/MAHASISWA"
+      },
+      "comparison_vs_primary_form": {
+        "full_name": "MISMATCH",
+        "identity_number": "MISMATCH",
+        "date_of_birth": "MISMATCH",
+        "overall": "MISMATCH"
+      },
+      "notes": "Clear KTP fixture for Tirta Sitompul."
+    },
+    "ktp_0003_clear.png": {
+      "filename": "ktp_0003_clear.png",
+      "variant": "clear",
+      "expected_document_type": "ktp",
+      "expected_outcome": "CLEAR_READABLE",
+      "fields": {
+        "full_name": "CINTA HABIBI",
+        "identity_number": "9334841404916304",
+        "birth_place": "BINJAI",
+        "date_of_birth_raw": "20-04-1964",
+        "date_of_birth": "1964-04-20",
+        "gender": "LAKI-LAKI",
+        "address": "JL. RAJAWALI BARAT NO. 0",
+        "rt_rw": "011/020",
+        "kel_desa": "PURWOKERTO",
+        "kecamatan": "PALANGKARAYA",
+        "kota_kabupaten": "KOTA BOGOR",
+        "provinsi": "SULAWESI SELATAN",
+        "occupation": "WIRASWASTA"
+      },
+      "comparison_vs_primary_form": {
+        "full_name": "MISMATCH",
+        "identity_number": "MISMATCH",
+        "date_of_birth": "MISMATCH",
+        "overall": "MISMATCH"
+      },
+      "notes": "Clear KTP fixture for Cinta Habibi."
+    },
+    "ktp_0004_mismatch.png": {
+      "filename": "ktp_0004_mismatch.png",
+      "variant": "mismatch",
+      "expected_document_type": "ktp",
+      "expected_outcome": "MISMATCH",
+      "fields": {
+        "full_name": "CATURANGGA YOLANDA",
+        "identity_number": "5923261106655072",
+        "birth_place": "DEPOK",
+        "date_of_birth_raw": "15-07-1962",
+        "date_of_birth": "1962-07-15",
+        "gender": "PEREMPUAN",
+        "address": "JALAN W.R. SUPRATMAN NO. 3",
+        "rt_rw": "011/018",
+        "kel_desa": "CIMAHI",
+        "kecamatan": "GORONTALO",
+        "kota_kabupaten": "KOTA TANGERANG SELATAN",
+        "provinsi": "DI YOGYAKARTA",
+        "occupation": "GURU/DOSEN"
+      },
+      "comparison_vs_primary_form": {
+        "full_name": "MISMATCH",
+        "identity_number": "MISMATCH",
+        "date_of_birth": "MISMATCH",
+        "overall": "MISMATCH"
+      },
+      "notes": "Intentional mismatch test case. System must flag MISMATCH against Puput Nugroho form."
+    },
+    "ktp_0005_mismatch.png": {
+      "filename": "ktp_0005_mismatch.png",
+      "variant": "mismatch",
+      "expected_document_type": "ktp",
+      "expected_outcome": "MISMATCH",
+      "fields": {
+        "full_name": "T. IRWAN YOLANDA, M.FARM",
+        "identity_number": "2996430512850082",
+        "birth_place": "TERNATE",
+        "date_of_birth_raw": "06-04-1964",
+        "date_of_birth": "1964-04-06",
+        "gender": "LAKI-LAKI",
+        "address": "GG. M.T HARYONO NO. 308",
+        "rt_rw": "015/015",
+        "kel_desa": "PANGKALPINANG",
+        "kecamatan": "PADANGPANJANG",
+        "kota_kabupaten": "KOTA BANDUNG",
+        "provinsi": "KALIMANTAN TIMUR",
+        "occupation": "BURUH"
+      },
+      "comparison_vs_primary_form": {
+        "full_name": "MISMATCH",
+        "identity_number": "MISMATCH",
+        "date_of_birth": "MISMATCH",
+        "overall": "MISMATCH"
+      },
+      "notes": "Intentional mismatch test case. Contains academic degree in name."
+    },
+    "ktp_0006_blurred.png": {
+      "filename": "ktp_0006_blurred.png",
+      "variant": "blurred",
+      "expected_document_type": "ktp",
+      "expected_outcome": "LOW_CONFIDENCE_OR_UNREADABLE",
+      "fields": {
+        "full_name": "ELVINA SAPUTRA",
+        "identity_number": "1769271401856907",
+        "birth_place": "MAGELANG",
+        "date_of_birth_raw": "20-07-2004",
+        "date_of_birth": "2004-07-20",
+        "gender": "LAKI-LAKI",
+        "address": "JL. RONGGOWARSITO NO. 4",
+        "rt_rw": "019/010",
+        "kel_desa": "JAYAPURA",
+        "kecamatan": "SERANG",
+        "kota_kabupaten": "KABUPATEN AMBON",
+        "provinsi": "KALIMANTAN TIMUR",
+        "occupation": "GURU/DOSEN"
+      },
+      "comparison_vs_primary_form": {
+        "overall": "MANUAL_REVIEW_REQUIRED"
+      },
+      "notes": "Blurred KTP fixture. Tests low confidence handling; manual review required."
+    },
+    "ktp_0007_rotated.png": {
+      "filename": "ktp_0007_rotated.png",
+      "variant": "rotated",
+      "expected_document_type": "ktp",
+      "expected_outcome": "ROTATION_CORRECTED",
+      "fields": {
+        "full_name": "T. MARSUDI PANGESTU",
+        "identity_number": "9662132806982369",
+        "birth_place": "PEKALONGAN",
+        "date_of_birth_raw": "05-12-1950",
+        "date_of_birth": "1950-12-05",
+        "gender": "PEREMPUAN",
+        "address": "JL. CIUMBULEUIT NO. 7",
+        "rt_rw": "002/015",
+        "kel_desa": "PRABUMULIH",
+        "kecamatan": "PASURUAN",
+        "kota_kabupaten": "KABUPATEN TEGAL",
+        "provinsi": "JAWA BARAT",
+        "occupation": "PELAJAR/MAHASISWA"
+      },
+      "comparison_vs_primary_form": {
+        "overall": "MISMATCH"
+      },
+      "notes": "Rotated / skewed orientation KTP fixture. Tests angle classifier."
+    }
+  },
+  "non_ktp_fixtures": {
+    "dokumen_sembarang_1.jpeg": {
+      "filename": "dokumen_sembarang_1.jpeg",
+      "variant": "wrong_document_type",
+      "expected_document_type": "unknown",
+      "expected_outcome": "NOT_DETECTED",
+      "notes": "Arbitrary non-KTP image. System must classify as unknown and not detect KTP fields."
+    },
+    "dokumen_sembarang_2.jpeg": {
+      "filename": "dokumen_sembarang_2.jpeg",
+      "variant": "wrong_document_type",
+      "expected_document_type": "unknown",
+      "expected_outcome": "NOT_DETECTED",
+      "notes": "Second arbitrary non-KTP image. Must reject as non-KTP document."
+    }
+  },
+  "bank_form_fixtures": {
+    "bank_account_form_digital.pdf": {
+      "filename": "bank_account_form_digital.pdf",
+      "format": "pdf_digital",
+      "parser": "pdf_extractor",
+      "expected_outcome": "MATCH",
+      "fields": {
+        "full_name": "PUPUT NUGROHO",
+        "identity_number": "2912541012827585",
+        "birth_place_date": "SURABAYA, 27-01-1950",
+        "account_purpose": "TABUNGAN PRIBADI & TRANSAKSI KELUARGA",
+        "account_type": "TABUNGAN VELTRIX REGULER"
+      }
+    },
+    "bank_account_form_scanned.pdf": {
+      "filename": "bank_account_form_scanned.pdf",
+      "format": "pdf_scanned",
+      "parser": "ocr_extractor",
+      "expected_outcome": "MATCH",
+      "fields": {
+        "full_name": "PUPUT NUGROHO",
+        "identity_number": "2912541012827585",
+        "birth_place_date": "SURABAYA, 27-01-1950",
+        "account_purpose": "TABUNGAN PRIBADI & TRANSAKSI KELUARGA",
+        "account_type": "TABUNGAN VELTRIX REGULER"
+      }
+    },
+    "bank_account_form_puput.docx": {
+      "filename": "bank_account_form_puput.docx",
+      "format": "docx",
+      "parser": "docx_parser",
+      "expected_outcome": "MATCH",
+      "fields": {
+        "full_name": "PUPUT NUGROHO",
+        "identity_number": "2912541012827585",
+        "birth_place_date": "SURABAYA, 27-01-1950",
+        "account_purpose": "TABUNGAN PRIBADI & TRANSAKSI KELUARGA",
+        "account_type": "TABUNGAN VELTRIX REGULER"
+      }
+    }
+  },
+  "video_fixture": {
+    "verification-demo.mp4": {
+      "filename": "verification-demo.mp4",
+      "format": "mp4",
+      "expected_outcome": "PREVIEWABLE_BY_REVIEWER",
+      "notes": "Short synthetic verification video for manual reviewer playback."
+    }
+  }
+}
