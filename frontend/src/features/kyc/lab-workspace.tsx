@@ -154,7 +154,7 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
       {run.error && <ErrorState error={run.error} />}
 
       {selected ? (
-        <section className="panel lab-output" aria-label="Hasil eksperimen">
+        <section className="panel lab-output" id="lab-output" aria-label="Hasil eksperimen">
           <div className="panel-heading" style={{ flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <span className="section-index">{selected.simulated ? 'SIMULASI / Bukan bukti fisik' : 'Hasil Pengukuran Aktual'}</span>
@@ -650,25 +650,51 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
           history.data
             .filter(r => r.kind === kind)
             .toReversed()
-            .map(item => (
-              <button
-                className="lab-history-row"
-                key={item.id}
-                onClick={() => {
-                  setSelected(item);
-                  exportRun.reset();
-                }}
-              >
-                <span>
-                  <strong>{fixtureLabels[item.fixture]}</strong>
-                  <small>
-                    {dateLabel(item.created_at)} · {item.repetitions} pengulangan
-                  </small>
-                </span>
-                <span className="status-pill">{item.simulated ? 'Simulasi' : 'Selesai'}</span>
-                <span>Buka →</span>
-              </button>
-            ))
+            .map(item => {
+              const isSelected = selected?.id === item.id;
+              return (
+                <button
+                  className={`lab-history-row ${isSelected ? 'active' : ''}`}
+                  key={item.id}
+                  onClick={() => {
+                    setSelected(item);
+                    exportRun.reset();
+                    setTimeout(() => {
+                      const el = document.getElementById('lab-output');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      } else {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }, 50);
+                  }}
+                  style={
+                    isSelected
+                      ? {
+                          borderLeft: '4px solid var(--primary, #2563eb)',
+                          background: 'rgba(37, 99, 235, 0.08)',
+                        }
+                      : undefined
+                  }
+                >
+                  <span>
+                    <strong>{fixtureLabels[item.fixture]}</strong>
+                    <small>
+                      {dateLabel(item.created_at)} · {item.repetitions} pengulangan
+                    </small>
+                  </span>
+                  <span className="status-pill">{item.simulated ? 'Simulasi' : 'Selesai'}</span>
+                  <span
+                    style={{
+                      color: isSelected ? 'var(--primary, #2563eb)' : 'inherit',
+                      fontWeight: isSelected ? 600 : 400,
+                    }}
+                  >
+                    {isSelected ? 'Terbuka di Atas ↑' : 'Buka ↑'}
+                  </span>
+                </button>
+              );
+            })
         )}
       </section>
     </>
