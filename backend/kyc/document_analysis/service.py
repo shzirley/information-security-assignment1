@@ -57,7 +57,7 @@ def analyze_document(
     overall_confidence: Optional[float] = None
     manual_review_required = False
     status = "COMPLETED"
-    raw_lines = []
+    raw_text = ""
 
     # --- 1. IMAGE PROCESSING (KTP & Photos) ---
     if mime_clean in ("image/png", "image/jpeg", "image/jpg", "image/webp"):
@@ -85,7 +85,7 @@ def analyze_document(
         detected_type = ocr_result.get("document_type", "unknown")
         overall_confidence = ocr_result.get("confidence")
         manual_review_required = ocr_result.get("manual_review_required", False)
-        raw_lines = ocr_result.get("raw_lines", [])
+        raw_text = "\n".join(ocr_result.get("raw_lines", []))
 
     # --- 2. PDF PROCESSING (Digital & Scanned) ---
     elif mime_clean == "application/pdf":
@@ -99,9 +99,9 @@ def analyze_document(
 
             if rendered:
                 ocr_result = analyze_image_bytes(rendered[0])
-                raw_ocr_text = "\n".join(ocr_result.get("raw_lines", []))
+                raw_text = "\n".join(ocr_result.get("raw_lines", []))
                 # Try parsing as bank form or KTP
-                parsed_form = parse_bank_account_form(raw_ocr_text)
+                parsed_form = parse_bank_account_form(raw_text)
                 if parsed_form.get("is_bank_form"):
                     extracted_fields = parsed_form.get("fields", {})
                     detected_type = "account_opening_form"
@@ -118,6 +118,7 @@ def analyze_document(
             # Digital PDF with native text layer
             engine_name = "pypdf-digital"
             model_version = "pypdf-native"
+            raw_text = pdf_res.get("raw_text", "")
             extracted_fields = pdf_res.get("fields", {})
             detected_type = pdf_res.get("document_type", "account_opening_form")
             overall_confidence = 1.0
@@ -132,6 +133,7 @@ def analyze_document(
 
         docx_res = parse_docx(content_bytes)
         if docx_res.get("status") == "COMPLETED":
+            raw_text = docx_res.get("raw_text", "")
             extracted_fields = docx_res.get("fields", {})
             detected_type = docx_res.get("document_type", "account_opening_form")
             overall_confidence = 1.0
@@ -197,6 +199,7 @@ def analyze_document(
         "checks": checks,
         "extracted_fields": extracted_fields,
         "has_mismatch": has_mismatch,
+        "raw_text": raw_text[:32000],
         "manual_review_required": manual_review_required,
         "overall_status": overall_status,
         "processed_at": datetime.now(timezone.utc).isoformat(),

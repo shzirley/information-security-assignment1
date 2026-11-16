@@ -79,7 +79,9 @@ limits = Table('kyc_rate_limits', metadata,
 security_log = Table('security_events', metadata,
     Column('id', String(36), primary_key=True), Column('at', String(40), nullable=False),
     Column('actor_id', String(36)), Column('action', String(40), nullable=False),
-    Column('resource_id', String(36)))
+    Column('resource_id', String(36)),
+    Column('application_id', String(36)), Column('evidence_id', String(36)),
+    Column('outcome', String(16)))
 
 def database(url):
     sqlite = url.startswith('sqlite')
@@ -99,3 +101,24 @@ def database(url):
 key_state = Table('kyc_key_state', metadata,
     Column('id', Integer, primary_key=True), Column('kek_fingerprint', String(64), nullable=False),
     Column('auth_fingerprint', String(64), nullable=False))
+
+# Subtype is stored separately to preserve the original evidence version sequence.
+evidence_types = Table('evidence_document_types', metadata,
+    Column('evidence_id', String(36), ForeignKey('evidence_versions.id', ondelete='CASCADE'), primary_key=True),
+    Column('document_type', String(32), nullable=False),
+    CheckConstraint("document_type IN ('ktp','account_opening_form','kk_optional','verification_video')",
+                    name='valid_document_type'))
+
+review_records = Table('review_checks', metadata,
+    Column('application_id', String(36), ForeignKey('applications.id', ondelete='CASCADE'), primary_key=True),
+    Column('case_version', Integer, primary_key=True),
+    Column('reviewer_id', String(36), ForeignKey('kyc_users.id'), nullable=False),
+    Column('object_id', String(36), ForeignKey('encrypted_objects.id', ondelete='CASCADE'), unique=True, nullable=False))
+
+document_analyses = Table('document_analyses', metadata,
+    Column('evidence_id', String(36), ForeignKey('evidence_versions.id', ondelete='CASCADE'), primary_key=True),
+    Column('profile_id', String(36), ForeignKey('personal_data_versions.id', ondelete='CASCADE'), primary_key=True),
+    Column('evidence_version', Integer, nullable=False),
+    Column('status', String(16), nullable=False),
+    Column('object_id', String(36), ForeignKey('encrypted_objects.id', ondelete='CASCADE'), unique=True, nullable=False),
+    Column('processed_at', String(40), nullable=False))

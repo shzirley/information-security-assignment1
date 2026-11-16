@@ -3,6 +3,7 @@ Extracts raw text layer via pypdf and extracts structured bank KYC fields.
 If the PDF contains no text layer (e.g. scanned image), flags it for OCR processing.
 """
 
+from contextlib import closing
 import io
 import re
 from typing import Any
@@ -125,16 +126,17 @@ def render_pdf_to_images(pdf_bytes: bytes, max_pages: int = 1) -> list[bytes]:
     """Render PDF pages to PNG image bytes for OCR processing (e.g. scanned forms)."""
     try:
         import pypdfium2 as pdfium
-        pdf = pdfium.PdfDocument(pdf_bytes)
         images = []
-        for i in range(min(len(pdf), max_pages)):
-            page = pdf[i]
-            image = page.render(scale=2).to_pil()
-            buf = io.BytesIO()
-            image.save(buf, format="PNG")
-            images.append(buf.getvalue())
+        with pdfium.PdfDocument(pdf_bytes) as pdf:
+            for i in range(min(len(pdf), max_pages)):
+                with closing(pdf[i]) as page:
+                    width, height = page.get_size()
+                    scale = min(2.0, 1600 / max(width, height))
+                    with closing(page.render(scale=scale)) as bitmap, io.BytesIO() as buf:
+                        bitmap.to_pil().save(buf, format="PNG")
+                        images.append(buf.getvalue())
         return images
-    except Exception as e:
+    except Exception:
         return []
 
 

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update, func, event
 from kyc.config import Settings
 from kyc.crypto import Envelope, IntegrityFailure, canonical
-from kyc.db import database, metadata, users, sessions, applications, evidence, objects, profiles, events
+from kyc.db import database, metadata, users, sessions, applications, evidence, objects, profiles, events, security_log
 from kyc.main import create_app
 from kyc.migrate import migrate
 from kyc.provision import create_user, check_keys
@@ -60,6 +60,20 @@ def upload(client, row, category, data=None, name=None):
                   files={'file':(name or filename,fixture_bytes(fixture) if data is None else data,'application/octet-stream')})
 def act(client, row, action, **extra):
     return mutate(client,'POST',f"/applications/{row['id']}/actions",json={'version':row['version'],'action':action,**extra})
+def save_checks(client, row, *, mismatch=False):
+    checks = []
+    for item in row['evidence']:
+        if item == next(e for e in reversed(row['evidence']) if e['category'] == item['category']):
+            issue = mismatch and item['category'] == 'identity'
+            checks.append(dict(evidence_id=item['id'], evidence_version=item['version'], readable=True,
+                               correct_document_type=True, matches_applicant_form=not issue,
+                               needs_clarification=issue, reason_code='MISMATCH' if issue else 'VERIFIED',
+                               note='Tanggal lahir berbeda.' if issue else None))
+    response = mutate(client, 'POST', f"/applications/{row['id']}/review/checks",
+                      json={'version': row['version'], 'checks': checks})
+    assert response.status_code == 200, response.text
+    return {**row, 'version': response.json()['version']}
+
 def complete(client):
     row = create(client)
     r = profile(client,row)
@@ -166,7 +180,10 @@ def test_workflow_assignment_revision_and_private_projection(system):
     login(client,'reviewer2')
     row = act(client,row,'start-review').json()
     assert row['status']=='UNDER_REVIEW'
+    assert act(client,row,'request-revision',note='Catatan yang cukup panjang.').json()['error']['code']=='REVIEW_CHECKS_REQUIRED'
+    row = save_checks(client, row, mismatch=True)
     assert act(client,row,'request-revision',note='short').status_code==422
+    assert act(client,row,'accept',note='Dokumen sudah diperiksa.').json()['error']['code']=='DECISION_CHECKS_MISMATCH'
     row = act(client,row,'request-revision',note='Lengkapi dokumen simulasi versi baru.').json()
     assert row['status']=='NEEDS_REVISION' and row['revision_note']=='Lengkapi dokumen simulasi versi baru.'
     login(client,'admin')
@@ -179,7 +196,8 @@ def test_workflow_assignment_revision_and_private_projection(system):
     assert row['status']=='RESUBMITTED'
     login(client,'reviewer2')
     row = act(client,row,'start-review').json()
-    row = act(client,row,'accept').json()
+    row = save_checks(client, row)
+    row = act(client,row,'accept',note='Semua dokumen dummy telah diperiksa.').json()
     assert row['status']=='ACCEPTED_DEMO'
     assert act(client,row,'reject',note='Dokumen tidak memenuhi ketentuan.').status_code==409
     login(client)
@@ -420,3 +438,128 @@ def test_cleanup_dry_run_and_foreign_key_cascade(system):
     with app.state.engine.connect() as connection:
         assert connection.execute(select(func.count()).select_from(objects)).scalar_one()==0
         assert connection.execute(select(func.count()).select_from(users)).scalar_one()==6
+
+
+def test_document_review_preview_and_persisted_analysis(system):
+    from pathlib import Path
+
+    settings, app, client, accounts = system
+    login(client)
+    row = complete(client)
+    directory = Path(__file__).resolve().parents[1] / 'fixtures' / 'synthetic_kyc'
+    pdf = (directory / 'bank_account_form_digital.pdf').read_bytes()
+    docx = (directory / 'bank_account_form_puput.docx').read_bytes()
+    row = upload(client, row, 'document', docx, 'dummy.docx').json()
+    row = upload(client, row, 'document', pdf, 'dummy.pdf').json()
+    prefix = f"/applications/{row['id']}"
+    current = {item['category']: item for item in row['evidence']}
+    document = current['document']
+    pdf_path = f"{prefix}/evidence/{document['id']}"
+    row = act(client, row, 'submit', synthetic_acknowledged=True).json()
+
+    def get(path):
+        return client.get(P + path)
+
+    assert get(pdf_path + '/review-preview').status_code == 403
+    login(client, 'admin')
+    row = mutate(client, 'PUT', f"/admin/assignments/{row['id']}",
+                 json={'version': row['version'], 'reviewer_id': accounts['reviewer']['id']}).json()
+    assert get(pdf_path + '/review-preview').status_code == 403
+    login(client, 'evaluator')
+    assert get(prefix + '/review/profile').status_code == 403
+    login(client, 'reviewer2')
+    assert get(pdf_path + '/review-preview').status_code == 404
+    login(client, 'reviewer')
+    assert get(pdf_path + '/download').status_code == 404
+    profile_response = get(prefix + '/review/profile')
+    assert profile_response.headers['cache-control'] == 'no-store'
+    assert set(profile_response.json()['profile']) == {'full_name', 'identity_number', 'date_of_birth', 'address'}
+    for category, data in [('identity', fixture_bytes('identity-png')),
+                           ('video', fixture_bytes('video-mp4')), ('document', pdf)]:
+        path = f"{prefix}/evidence/{current[category]['id']}/review-preview"
+        response = get(path)
+        assert response.status_code == 200 and response.content == data
+        assert response.headers['x-content-type-options'] == 'nosniff'
+    page = get(pdf_path + '/review-preview?page=1')
+    assert page.status_code == 200, page.text
+    assert base64.b64decode(page.json()['image_base64']).startswith(b'\x89PNG')
+    assert get(pdf_path + '/review-preview?page=500').status_code == 404
+    old = next(e for e in row['evidence'] if e['mime_type'].endswith('wordprocessingml.document'))
+    assert get(f"{prefix}/evidence/{old['id']}/review-preview").status_code == 404
+    assert get(pdf_path + '/analysis').status_code == 404
+    assert client.post(P + pdf_path + '/analysis').status_code == 403
+    analyzed = mutate(client, 'POST', pdf_path + '/analysis')
+    assert analyzed.status_code == 200, analyzed.text
+    result = analyzed.json()
+    assert result['status'] == 'COMPLETED' and result['engine'] == 'pypdf-digital'
+    assert result['manual_review_required'] is True
+    assert any(check['result'] == 'MISMATCH' for check in result['checks'])
+    assert result == get(pdf_path + '/analysis').json()
+    assert result == mutate(client, 'POST', pdf_path + '/analysis').json()
+    with app.state.engine.connect() as connection:
+        ciphertext = connection.execute(select(objects.c.ciphertext).where(objects.c.kind=='document_analysis')).scalar_one()
+        assert b'PUPUT NUGROHO' not in ciphertext and b'Nara Contoh' not in ciphertext
+        audit = connection.execute(select(security_log).where(
+            security_log.c.action == 'DOCUMENT_ANALYZED', security_log.c.evidence_id == document['id']))
+        audit_row = audit.mappings().one()
+        assert audit_row['application_id'] == row['id'] and audit_row['actor_id'] == accounts['reviewer']['id']
+        assert audit_row['outcome'] == 'success'
+    with TestClient(create_app(settings), raise_server_exceptions=False) as restarted:
+        restarted.cookies.update(client.cookies)
+        assert restarted.get(P + pdf_path + '/analysis').json() == result
+
+    row = act(client, row, 'start-review').json()
+    row = save_checks(client, row, mismatch=True)
+    assert act(client, {**row, 'version': row['version'] - 1}, 'request-revision',
+               note='Periksa tanggal lahir dokumen.').status_code == 409
+    row = act(client, row, 'request-revision', note='Periksa tanggal lahir dokumen.').json()
+    assert row['status'] == 'NEEDS_REVISION'
+    assert get(pdf_path + '/review-preview').status_code == 409
+    login(client)
+    row = upload(client, row, 'document', docx, 'dummy-revision.docx').json()
+    docx_id = next(e for e in reversed(row['evidence']) if e['category'] == 'document')['id']
+    row = act(client, row, 'resubmit', synthetic_acknowledged=True).json()
+    assert get(pdf_path + '/download').content == pdf
+    login(client, 'reviewer')
+    docx_path = f"{prefix}/evidence/{docx_id}"
+    response = get(docx_path + '/review-preview')
+    assert response.status_code == 200 and response.headers['content-type'].startswith('text/plain')
+    assert 'PEMBUKAAN REKENING' in response.text.upper()
+    assert get(docx_path + '/analysis').status_code == 404
+    result = mutate(client, 'POST', docx_path + '/analysis').json()
+    assert result['status'] == 'COMPLETED' and result['engine'] == 'python-docx'
+    from kyc.analysis_worker import AnalysisWorker
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(AnalysisWorker, 'run', lambda *args, **kwargs: None)
+        identity = current['identity']['id']
+        identity_path = f"{prefix}/evidence/{identity}/analysis"
+        failed = mutate(client, 'POST', identity_path)
+        assert failed.status_code == 200 and failed.json()['status'] == 'FAILED'
+        assert failed.json()['manual_review_required'] is True
+        assert failed.json() == get(identity_path).json()
+        assert get(identity_path.removesuffix('/analysis') + '/review-preview').status_code == 200
+
+
+def test_kk_is_optional_and_has_independent_review_slot(system):
+    _, _, client, _ = system
+    login(client)
+    row = create(client)
+    row = profile(client, row).json()
+    row = upload(client, row, 'identity').json()
+    row = upload(client, row, 'video').json()
+
+    def kk(value, kind):
+        return mutate(client, 'POST', f"/applications/{value['id']}/evidence",
+                      data={'category': 'document', 'version': str(value['version']), 'document_type': kind},
+                      files={'file': ('DUMMY-kk.png', fixture_bytes('identity-png'))})
+
+    assert kk(row, 'verification_video').status_code == 422
+    optional = kk(row, 'kk_optional')
+    assert optional.status_code == 201, optional.text
+    row = optional.json()
+    assert act(client, row, 'submit', synthetic_acknowledged=True).status_code == 422
+    row = upload(client, row, 'document').json()
+    row = kk(row, 'kk_optional').json()
+    assert [(e['document_type'], e['version'], e['required']) for e in row['evidence'] if e['category']=='document'] == [
+        ('kk_optional', 1, False), ('account_opening_form', 2, True), ('kk_optional', 3, False)]
+    assert act(client, row, 'submit', synthetic_acknowledged=True).status_code == 200

@@ -29,8 +29,10 @@ export const syntheticProfile: ApplicantProfile = {
   email: 'nara@example.com', phone: '080000000001', address: 'Jalan Simulasi 12, Kota Contoh',
   occupation: 'Desainer fiktif', account_purpose: 'Tabungan pribadi (simulasi)',
 };
+export type DocumentType = 'ktp' | 'account_opening_form' | 'kk_optional' | 'verification_video';
 export interface Evidence {
   id: string; category: EvidenceCategory; version: number; original_bytes: number;
+  document_type?: DocumentType | 'legacy_supporting_document'; required?: boolean;
   mime_type: string; created_at: string; validation: 'format_checked'; display_name?: string;
 }
 export interface CaseEvent { id: string; at: string; action: string; actor_role: Role; note?: string }
@@ -49,7 +51,7 @@ export interface LabRun {
   rows: Array<{ algorithm: string; encrypt_ms: number; decrypt_ms: number; iqr_ms: number; overhead_bytes: number; round_trip_ok: boolean }>;
 }
 export const editable = (status: CaseStatus) => status === 'DRAFT' || status === 'NEEDS_REVISION';
-export const evidenceFor = (application: Application, category: EvidenceCategory) => application.evidence.filter(e => e.category === category).sort((a, b) => b.version - a.version)[0];
+export const evidenceFor = (application: Application, category: EvidenceCategory) => application.evidence.filter(e => e.category === category && e.required !== false).sort((a, b) => b.version - a.version)[0];
 export const completeness = (application: Application) => Number(application.personal_data_complete) + categories.filter(c => evidenceFor(application, c)).length;
 export function profileErrors(profile: ApplicantProfile): Partial<Record<keyof ApplicantProfile, string>> {
   const errors: Partial<Record<keyof ApplicantProfile, string>> = {};
@@ -67,4 +69,26 @@ export function fileError(file: File, category: EvidenceCategory) {
   if (!file.size) return 'File kosong tidak dapat diunggah.';
   if (file.size > rule.max) return `Ukuran file melebihi batas ${rule.size}.`;
   return '';
+}
+
+export interface EvidenceCheck {
+  evidence_id: string;
+  evidence_version: number;
+  readable: boolean;
+  correct_document_type: boolean;
+  matches_applicant_form: boolean;
+  needs_clarification: boolean;
+  reason_code: 'VERIFIED' | 'UNREADABLE' | 'WRONG_DOCUMENT_TYPE' | 'MISMATCH' | 'CLARIFICATION';
+  note?: string | null;
+}
+export interface ReviewChecksResponse { version: number; review: { checks: EvidenceCheck[] } | null }
+export type ReviewerProfile = Pick<ApplicantProfile, 'full_name' | 'identity_number' | 'date_of_birth' | 'address'>;
+export interface DocumentAnalysis {
+  status: 'COMPLETED' | 'FAILED';
+  engine: string;
+  model_version: string;
+  processed_at: string;
+  manual_review_required: boolean;
+  error?: string;
+  checks: Array<{ field: string; submitted_value: string | null; extracted_value: string | null; result: string }>;
 }

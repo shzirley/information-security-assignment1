@@ -891,3 +891,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 100px; }
   .case-preparation ul { gap: 22px; }
   .case-preparation li { flex-basis: calc(50% - 12px); }
 }
+
+.document-check { display: grid; gap: .65rem; margin-block: 1rem; min-width: 0; }
+.document-check legend { font-weight: 700; }
+.document-review-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 48vh; overflow: auto; }

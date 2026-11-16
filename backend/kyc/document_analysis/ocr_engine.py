@@ -69,7 +69,10 @@ def parse_ktp_lines(rec_texts: list[str], rec_scores: list[float]) -> dict[str, 
 
     # 2. Extract NIK (16 consecutive digits or prefixed by NIK)
     nik_found = None
-    for i, line in enumerate(cleaned_lines):
+    dummy_match = re.search(r"\bDUMMY-[A-Z0-9-]{3,40}\b", full_text, re.I)
+    if dummy_match:
+        nik_found = dummy_match.group(0)
+    for i, line in enumerate(cleaned_lines if nik_found is None else []):
         line_clean = line.replace(":", "").replace(" ", "").strip()
         nik_match = re.search(r"\b(\d{16})\b", line_clean)
         if nik_match:

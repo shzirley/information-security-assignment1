@@ -1,3 +1,4 @@
+import base64
 import csv
 import hashlib
 import hmac
@@ -10,9 +11,10 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import quote
+from threading import BoundedSemaphore
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
-from fastapi import FastAPI, Request, Response, Depends
+from fastapi import FastAPI, Request, Response, Depends, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, update, delete, func
@@ -22,9 +24,13 @@ from starlette.formparsers import MultiPartParser
 from starlette.datastructures import UploadFile
 from .config import Settings
 from .db import (database, users, sessions, applications, assignments, objects, profiles,
-                 evidence, events, limits, security_log, lab_runs, lab_lock)
+                 evidence, evidence_types, events, limits, security_log, lab_runs, lab_lock,
+                 review_records, document_analyses)
 from .crypto import Envelope, IntegrityFailure, canonical
-from .schemas import Model, Credentials, Registration, SaveProfile, Action, Assignment, LabInput
+from .schemas import Model, Credentials, Registration, SaveProfile, Action, Assignment, LabInput, ReviewChecks
+from .analysis_worker import AnalysisWorker
+from .review import (DEFAULT_TYPES, ACCEPTED_TYPES, REQUIRED, PROFILE_FIELDS, ACTIVE_REVIEW,
+                     DOCX, PREVIEW_MIME, classified_evidence, current_evidence, review_slot, passed, valid_reason, docx_preview, pdf_page_preview)
 from .validation import validate, InvalidFile, RULES
 
 PREFIX = '/api/v1'
@@ -89,6 +95,9 @@ class BodyLimit:
 def create_app(settings: Settings):
     engine = database(settings.database_url)
     envelope = Envelope(settings.kek)
+    analysis_worker = AnalysisWorker()
+    analysis_slots = BoundedSemaphore(1)
+    preview_slots = BoundedSemaphore(2)
     passwords = PasswordHasher()
     dummy_hash = passwords.hash(secrets.token_urlsafe(32))
     # Request cap is strictly lower than spool threshold: no upload rollover to disk.
@@ -99,17 +108,20 @@ def create_app(settings: Settings):
         # Fail early for missing schema or wrong KEK; never generate replacement keys here.
         from .provision import check_keys
         check_keys(engine, settings)
-        yield
-        engine.dispose()
+        try:
+            yield
+        finally:
+            analysis_worker.close()
+            engine.dispose()
 
     app = FastAPI(title='VELTRIX BankKYC API', version='2.0.0', lifespan=lifespan)
     app.state.engine, app.state.envelope, app.state.settings = engine, envelope, settings
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
 
-    def audit(action, actor_id=None, resource_id=None):
+    def audit(action, actor_id=None, resource_id=None, *, case_id=None, evidence_id=None, outcome=None):
         try:
             with engine.begin() as connection:
-                connection.execute(insert(security_log).values(id=uid(), at=now(), actor_id=actor_id, action=action, resource_id=resource_id))
+                connection.execute(insert(security_log).values(id=uid(), at=now(), actor_id=actor_id, action=action, resource_id=resource_id, application_id=case_id, evidence_id=evidence_id, outcome=outcome))
         except SQLAlchemyError:
             logger.error('Security audit storage unavailable')
 
@@ -145,7 +157,7 @@ def create_app(settings: Settings):
     @app.exception_handler(ApiFailure)
     async def api_error(request, exc):
         if exc.status in (403, 404):
-            audit('access_denied', getattr(request.state, 'actor_id', None))
+            audit('access_denied', getattr(request.state, 'actor_id', None), outcome='denied')
         return failure(exc.status, exc.code, exc.message, exc.fields)
     @app.exception_handler(RequestValidationError)
     async def validation_error(_, exc):
@@ -260,8 +272,9 @@ def create_app(settings: Settings):
         result = {k: row[k] for k in ('id', 'reference', 'status', 'version', 'created_at', 'updated_at', 'synthetic_acknowledged')}
         result['personal_data_complete'] = connection.execute(select(profiles.c.id).where(profiles.c.application_id == row['id']).limit(1)).first() is not None
         result['evidence'] = []
-        for entry in connection.execute(select(evidence).where(evidence.c.application_id == row['id']).order_by(evidence.c.version, evidence.c.created_at)).mappings():
-            item = {k: entry[k] for k in ('id', 'category', 'version', 'original_bytes', 'mime_type', 'created_at')}
+        for entry in connection.execute(classified_evidence(row['id']).order_by(evidence.c.version, evidence.c.created_at)).mappings():
+            item = {k: entry[k] for k in ('id', 'category', 'version', 'original_bytes', 'mime_type', 'created_at', 'document_type')}
+            item['required'] = review_slot(entry) in REQUIRED
             item['validation'] = 'format_checked'
             if is_owner:
                 meta, _ = open_object(connection, entry['object_id'], row, kind='evidence', category=entry['category'], version=entry['version'])
@@ -276,7 +289,8 @@ def create_app(settings: Settings):
             if event['note_object_id'] and account['role'] in ('applicant', 'reviewer'):
                 _, payload = open_object(connection, event['note_object_id'], row, kind='review_note', category='', version=event['case_version'])
                 entry['note'] = payload.decode()
-                result['revision_note'] = entry['note']
+                if event['action'] in ('Revisi diminta', 'Pengajuan ditolak', 'Pengajuan ditolak (simulasi)'):
+                    result['revision_note'] = entry['note']
             result['events'].append(entry)
         return result
 
@@ -405,6 +419,7 @@ def create_app(settings: Settings):
         'requestBody': {'required': True, 'content': {'multipart/form-data': {'schema': {
             'type': 'object', 'required': ['category', 'version', 'file'], 'properties': {
                 'category': {'type': 'string', 'enum': ['identity', 'document', 'video']},
+                'document_type': {'type': 'string', 'enum': sorted(set(DEFAULT_TYPES.values()) | {'kk_optional'})},
                 'version': {'type': 'integer', 'minimum': 1}, 'file': {'type': 'string', 'format': 'binary'}}}}}}})
     async def upload(case_id: str, request: Request, account=Depends(user)):
         # Ownership and edit scope checked before multipart parsing and repeated in transaction.
@@ -413,13 +428,17 @@ def create_app(settings: Settings):
             if existing['status'] not in EDITABLE:
                 raise ApiFailure(409, 'CASE_READ_ONLY', 'Pengajuan terkunci.')
         rate_limit('upload', account['id'], 60, 60)
-        async with request.form(max_files=1, max_fields=2, max_part_size=2048) as form:
+        async with request.form(max_files=1, max_fields=3, max_part_size=2048) as form:
             pairs = list(form.multi_items())
-            if len(pairs) != 3 or set(form) != {'category', 'version', 'file'}:
+            if len(pairs) != len(form) or set(form) not in ({'category', 'version', 'file'}, {'category', 'version', 'file', 'document_type'}):
                 raise ApiFailure(422, 'INVALID_UPLOAD', 'Kirim tepat satu file, kategori, dan versi.')
             category, file = form['category'], form['file']
-            if category not in RULES or not isinstance(file, UploadFile):
+            if not isinstance(category, str) or category not in RULES or not isinstance(file, UploadFile):
                 raise ApiFailure(422, 'INVALID_UPLOAD', 'Kategori atau file tidak valid.')
+            document_type = form.get('document_type', DEFAULT_TYPES[category])
+            if not isinstance(document_type, str) or document_type not in ACCEPTED_TYPES[category]:
+                raise ApiFailure(422, 'INVALID_DOCUMENT_TYPE', 'Jenis dokumen tidak cocok dengan kategori.')
+            validation_category = 'identity' if document_type == 'kk_optional' else category
             try:
                 text_version = form['version']
                 if not isinstance(text_version, str) or not text_version.isascii() or not text_version.isdecimal():
@@ -431,12 +450,12 @@ def create_app(settings: Settings):
                 raise ApiFailure(422, 'VALIDATION_ERROR', 'Versi pengajuan tidak valid.')
             filename = (file.filename or '').replace('\\', '/').rsplit('/', 1)[-1]
             filename = ''.join(c for c in filename if ord(c) >= 32 and ord(c) != 127)[:255]
-            cap = RULES[category][1]
+            cap = RULES[validation_category][1]
             data = await file.read(cap + 1)
             if len(data) > cap:
                 raise ApiFailure(413, 'FILE_TOO_LARGE', 'Ukuran file melebihi batas kategori.')
             try:
-                mime = validate(data, filename, category, settings.ffprobe)
+                mime = validate(data, filename, validation_category, settings.ffprobe)
             except InvalidFile as exc:
                 raise ApiFailure(422, 'INVALID_UPLOAD', str(exc))
             except RuntimeError:
@@ -448,9 +467,11 @@ def create_app(settings: Settings):
                 if count >= 100:
                     raise ApiFailure(409, 'CAPACITY_REACHED', 'Batas 100 versi berkas per pengajuan tercapai.')
                 payload_version = (connection.execute(select(func.max(evidence.c.version)).where(evidence.c.application_id == case_id, evidence.c.category == category)).scalar_one() or 0) + 1
-                object_id = store_object(connection, row, 'evidence', category, payload_version, data, {'filename': filename, 'mime_type': mime})
-                connection.execute(insert(evidence).values(id=uid(), application_id=case_id, category=category, version=payload_version,
+                object_id = store_object(connection, row, 'evidence', category, payload_version, data, {'filename': filename, 'mime_type': mime, 'document_type': document_type})
+                evidence_id = uid()
+                connection.execute(insert(evidence).values(id=evidence_id, application_id=case_id, category=category, version=payload_version,
                     object_id=object_id, original_bytes=len(data), mime_type=mime, created_at=now()))
+                connection.execute(insert(evidence_types).values(evidence_id=evidence_id, document_type=document_type))
                 add_event(connection, row, account, f'Bukti {category} versi {payload_version} ditambahkan')
                 return present(connection, row, account)
 
@@ -477,6 +498,212 @@ def create_app(settings: Settings):
         audit('profile_download', account['id'], case_id)
         return attachment(data, 'profil-dummy.json')
 
+    def reviewer_case(connection, case_id, account, *, lock=False, writing=False):
+        role(account, 'reviewer')
+        row = case(connection, case_id, account, lock=lock)
+        allowed = ('UNDER_REVIEW',) if writing else ACTIVE_REVIEW
+        if row['status'] not in allowed:
+            raise ApiFailure(409, 'REVIEW_NOT_ACTIVE', 'Tinjauan konten belum aktif.')
+        return row
+
+    def reviewer_evidence(connection, row, evidence_id):
+        for entry in current_evidence(connection, row['id']).values():
+            if entry['id'] == evidence_id:
+                return entry
+        raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Versi bukti aktif tidak ditemukan.')
+
+    def open_evidence(connection, row, entry):
+        meta, data = open_object(connection, entry['object_id'], row, kind='evidence',
+                                 category=entry['category'], version=entry['version'])
+        if (meta.get('mime_type') != entry['mime_type'] or len(data) != entry['original_bytes']
+                or not (meta.get('document_type') == entry['document_type']
+                        or ('document_type' not in meta and entry['document_type'] in
+                            ('ktp', 'legacy_supporting_document', 'verification_video')))):
+            raise IntegrityFailure()
+        return data
+
+    def review_profile_data(connection, row, entry):
+        if entry is None:
+            raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Profil belum tersedia.')
+        _, data = open_object(connection, entry['object_id'], row, kind='personal_data',
+                              category='', version=entry['version'])
+        return json.loads(data)
+
+    def add_security_event(connection, action, account, case_id, *, evidence_id=None, outcome='success'):
+        connection.execute(insert(security_log).values(id=uid(), at=now(), actor_id=account['id'],
+                                                        action=action, resource_id=evidence_id or case_id,
+                                                        application_id=case_id, evidence_id=evidence_id, outcome=outcome))
+
+    @app.get(PREFIX + '/applications/{case_id}/review/profile')
+    def reviewer_profile(case_id: str, account=Depends(user)):
+        rate_limit('review_profile', account['id'], 120, 60)
+        with engine.connect() as connection:
+            row = reviewer_case(connection, case_id, account, lock=True)
+            data = review_profile_data(connection, row, latest_profile(connection, row))
+        audit('REVIEW_PROFILE_READ', account['id'], case_id, case_id=case_id, outcome='success')
+        return {'profile': {key: data[key] for key in PROFILE_FIELDS}}
+
+    @app.get(PREFIX + '/applications/{case_id}/evidence/{evidence_id}/review-preview')
+    def review_preview(case_id: str, evidence_id: str, page: int | None = Query(None, ge=1, le=500), account=Depends(user)):
+        rate_limit('review_preview', account['id'], 30, 60)
+        if not preview_slots.acquire(blocking=False):
+            raise ApiFailure(429, 'PREVIEW_BUSY', 'Pratinjau sedang sibuk. Coba lagi.')
+        try:
+            with engine.connect() as connection:
+                row = reviewer_case(connection, case_id, account, lock=True)
+                entry = reviewer_evidence(connection, row, evidence_id)
+                mime = entry['mime_type']
+                if mime not in PREVIEW_MIME:
+                    raise ApiFailure(415, 'PREVIEW_UNSUPPORTED', 'Format pratinjau tidak didukung.')
+                data = open_evidence(connection, row, entry)
+            if page is not None:
+                if mime != 'application/pdf':
+                    raise ApiFailure(415, 'PREVIEW_UNSUPPORTED', 'Nomor halaman hanya tersedia untuk PDF.')
+                try:
+                    rendered = pdf_page_preview(data, page)
+                except Exception:
+                    raise ApiFailure(422, 'PREVIEW_UNAVAILABLE', 'Halaman PDF belum dapat ditampilkan.')
+                if rendered is None:
+                    raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Halaman PDF tidak ditemukan.')
+                png, total = rendered
+                audit('CONTENT_PREVIEWED', account['id'], evidence_id, case_id=case_id, evidence_id=evidence_id, outcome='success')
+                return {'page': page, 'pages': total, 'image_base64': base64.b64encode(png).decode('ascii')}
+            headers = {'Content-Disposition': 'inline', 'Content-Security-Policy': "sandbox; default-src 'none'"}
+            if mime == DOCX:
+                data, mime = docx_preview(data), 'text/plain'
+            audit('CONTENT_PREVIEWED', account['id'], evidence_id, case_id=case_id, evidence_id=evidence_id, outcome='success')
+            return Response(data, media_type=mime, headers=headers)
+        finally:
+            preview_slots.release()
+
+    def saved_review(connection, row, account, version):
+        record = connection.execute(select(review_records).where(
+            review_records.c.application_id == row['id'], review_records.c.case_version == version,
+            review_records.c.reviewer_id == account['id'])).mappings().first()
+        if record is None:
+            return None
+        private, payload = open_object(connection, record['object_id'], row, kind='review_check',
+                                       category='', version=version)
+        if private.get('reviewer_id') != account['id']:
+            raise IntegrityFailure()
+        return json.loads(payload)
+
+    @app.get(PREFIX + '/applications/{case_id}/review/checks')
+    def get_review_checks(case_id: str, account=Depends(user)):
+        with engine.connect() as connection:
+            row = reviewer_case(connection, case_id, account)
+            return {'version': row['version'], 'review': saved_review(connection, row, account, row['version'])}
+
+    @app.post(PREFIX + '/applications/{case_id}/review/checks')
+    def save_review_checks(case_id: str, body: ReviewChecks, account=Depends(user)):
+        with engine.begin() as connection:
+            row = reviewer_case(connection, case_id, account, lock=True, writing=True)
+            reserve(connection, row, body.version)
+            current = current_evidence(connection, case_id)
+            latest = {item['id']: (slot, item) for slot, item in current.items()}
+            checks = [item.model_dump() for item in body.checks]
+            checked = set()
+            for check in checks:
+                slot, item = latest.get(check['evidence_id'], (None, None))
+                if item is None or item['version'] != check['evidence_version']:
+                    raise ApiFailure(409, 'EVIDENCE_VERSION_CONFLICT', 'Bukti berubah. Muat ulang tinjauan.')
+                if slot in checked or not valid_reason(check):
+                    raise ApiFailure(422, 'INVALID_REVIEW_CHECKS', 'Checklist dan kode alasan harus konsisten.')
+                if not passed(check) and not check['note']:
+                    raise ApiFailure(422, 'NOTE_REQUIRED', 'Isi alasan untuk bukti yang perlu ditinjau ulang.')
+                checked.add(slot)
+            if not REQUIRED <= checked:
+                raise ApiFailure(422, 'REVIEW_CHECKS_REQUIRED', 'Periksa setiap bukti wajib versi terbaru.')
+            payload = {'checks': checks}
+            object_id = store_object(connection, row, 'review_check', '', row['version'],
+                                     canonical(payload), {'reviewer_id': account['id']})
+            connection.execute(insert(review_records).values(application_id=case_id, case_version=row['version'],
+                                                              reviewer_id=account['id'], object_id=object_id))
+            add_event(connection, row, account, 'Checklist bukti disimpan')
+            add_security_event(connection, 'REVIEW_CHECKS_SAVED', account, case_id)
+            return {'version': row['version'], 'review': payload}
+
+    def analysis_query(entry, profile_entry):
+        return (document_analyses.c.evidence_id == entry['id'],
+                document_analyses.c.profile_id == profile_entry['id'])
+
+    def analysis_binding(entry, profile_entry):
+        return {'evidence_id': entry['id'], 'profile_id': profile_entry['id'],
+                'document_type': entry['document_type']}
+
+    def read_analysis(connection, row, entry, profile_entry):
+        record = connection.execute(select(document_analyses).where(*analysis_query(entry, profile_entry))).mappings().first()
+        if record is None:
+            return None
+        private, payload = open_object(connection, record['object_id'], row, kind='document_analysis',
+                                       category=entry['category'], version=entry['version'])
+        binding = analysis_binding(entry, profile_entry)
+        if record['evidence_version'] != entry['version'] or any(private.get(key) != value for key, value in binding.items()):
+            raise IntegrityFailure()
+        return json.loads(payload)
+
+    @app.get(PREFIX + '/applications/{case_id}/evidence/{evidence_id}/analysis')
+    def get_analysis(case_id: str, evidence_id: str, account=Depends(user)):
+        rate_limit('analysis_get', account['id'], 120, 60)
+        with engine.connect() as connection:
+            row = reviewer_case(connection, case_id, account)
+            entry = reviewer_evidence(connection, row, evidence_id)
+            result = read_analysis(connection, row, entry, latest_profile(connection, row))
+            if result is None:
+                raise ApiFailure(404, 'ANALYSIS_NOT_FOUND', 'Analisis versi bukti dan profil ini belum tersedia.')
+            return result
+
+    @app.post(PREFIX + '/applications/{case_id}/evidence/{evidence_id}/analysis')
+    def post_analysis(case_id: str, evidence_id: str, account=Depends(user)):
+        rate_limit('analysis_post', account['id'], 12, 60)
+        if not analysis_slots.acquire(blocking=False):
+            raise ApiFailure(429, 'ANALYSIS_BUSY', 'Analisis sedang berjalan. Coba lagi.')
+        try:
+            with engine.connect() as connection:
+                row = reviewer_case(connection, case_id, account)
+                entry = reviewer_evidence(connection, row, evidence_id)
+                if review_slot(entry) not in ('ktp', 'account_opening_form'):
+                    raise ApiFailure(415, 'ANALYSIS_UNSUPPORTED', 'Analisis tersedia untuk KTP dan formulir.')
+                profile_entry = latest_profile(connection, row)
+                submitted = review_profile_data(connection, row, profile_entry)
+                cached = read_analysis(connection, row, entry, profile_entry)
+                if cached is not None and cached['status'] == 'COMPLETED':
+                    return cached
+                data = open_evidence(connection, row, entry)
+            result = analysis_worker.run(content_bytes=data, mime_type=entry['mime_type'],
+                                         document_type=review_slot(entry), submitted_form=submitted,
+                                         evidence_id=evidence_id, evidence_version=entry['version'])
+            if not result or result.get('status') != 'COMPLETED' or not result.get('extracted_fields'):
+                result = {'status': 'FAILED', 'engine': (result or {}).get('engine', 'none'),
+                          'model_version': (result or {}).get('model_version', 'none'),
+                          'checks': [], 'extracted_fields': {},
+                          'error': 'Analisis tidak dapat membaca dokumen. Lanjutkan pemeriksaan manual.'}
+            result.update(evidence_id=evidence_id, evidence_version=entry['version'], manual_review_required=True,
+                          expected_document_type=entry['document_type'], processed_at=now())
+            result.setdefault('document_type', 'unknown')
+            with engine.begin() as connection:
+                current = reviewer_case(connection, case_id, account, lock=True)
+                if current['version'] != row['version']:
+                    raise ApiFailure(409, 'VERSION_CONFLICT', 'Pengajuan berubah saat analisis. Muat ulang.')
+                previous = connection.execute(select(document_analyses).where(*analysis_query(entry, profile_entry))).mappings().first()
+                if previous is not None and previous['status'] == 'COMPLETED':
+                    return read_analysis(connection, current, entry, profile_entry)
+                object_id = store_object(connection, current, 'document_analysis', entry['category'], entry['version'],
+                                         canonical(result), analysis_binding(entry, profile_entry))
+                values = dict(object_id=object_id, status=result['status'], processed_at=result['processed_at'])
+                if previous is None:
+                    connection.execute(insert(document_analyses).values(
+                        evidence_id=evidence_id, profile_id=profile_entry['id'], evidence_version=entry['version'], **values))
+                else:
+                    connection.execute(update(document_analyses).where(*analysis_query(entry, profile_entry)).values(**values))
+                    connection.execute(delete(objects).where(objects.c.id == previous['object_id']))
+                outcome = 'DOCUMENT_ANALYZED' if result['status'] == 'COMPLETED' else 'DOCUMENT_ANALYSIS_FAILED'
+                add_security_event(connection, outcome, account, case_id, evidence_id=evidence_id,
+                                   outcome='success' if result['status'] == 'COMPLETED' else 'failed')
+            return result
+        finally:
+            analysis_slots.release()
+
     @app.post(PREFIX + '/applications/{case_id}/actions')
     def action(case_id: str, body: Action, account=Depends(user)):
         with engine.begin() as connection:
@@ -496,17 +723,26 @@ def create_app(settings: Settings):
             if body.action not in allowed:
                 raise ApiFailure(409, 'INVALID_TRANSITION', 'Tindakan tidak tersedia pada status saat ini.')
             if body.action in ('submit', 'resubmit'):
-                categories = set(connection.execute(select(evidence.c.category).where(evidence.c.application_id == case_id)).scalars())
-                if latest_profile(connection, row) is None or categories != set(RULES) or body.synthetic_acknowledged is not True:
-                    raise ApiFailure(422, 'CASE_INCOMPLETE', 'Lengkapi empat kategori dan konfirmasi penggunaan data sintetis.')
+                slots = current_evidence(connection, case_id)
+                if latest_profile(connection, row) is None or not REQUIRED <= slots.keys() or body.synthetic_acknowledged is not True:
+                    raise ApiFailure(422, 'CASE_INCOMPLETE', 'Lengkapi profil, KTP dummy, formulir pembukaan rekening, video, dan konfirmasi data sintetis.')
                 row['synthetic_acknowledged'] = True
-            if body.action in ('request-revision', 'reject') and (not body.note or len(body.note.strip()) < 10):
-                raise ApiFailure(422, 'NOTE_REQUIRED', 'Tulis catatan operasional 10–500 karakter.')
+            decision = body.action in ('request-revision', 'accept', 'reject')
+            if decision:
+                review = saved_review(connection, row, account, body.version)
+                if review is None:
+                    raise ApiFailure(422, 'REVIEW_CHECKS_REQUIRED', 'Simpan checklist bukti sebelum membuat keputusan.')
+                has_issue = any(not passed(check) for check in review['checks'])
+                if (body.action == 'accept') == has_issue:
+                    raise ApiFailure(422, 'DECISION_CHECKS_MISMATCH', 'Keputusan harus sesuai hasil checklist.')
+                if not body.note or len(body.note) < 10:
+                    raise ApiFailure(422, 'NOTE_REQUIRED', 'Tulis alasan keputusan 10–500 karakter.')
+                add_security_event(connection, 'REVIEW_DECISION_RECORDED', account, row['id'])
             row['status'] = allowed[body.action]
             connection.execute(update(applications).where(applications.c.id == case_id).values(status=row['status'], synthetic_acknowledged=row['synthetic_acknowledged']))
             labels = {'submit': 'Pengajuan dikirim', 'resubmit': 'Pengajuan dikirim ulang', 'withdraw': 'Pengajuan ditarik',
-                'start-review': 'Tinjauan metadata dimulai', 'request-revision': 'Revisi diminta', 'accept': 'Pengajuan diterima', 'reject': 'Pengajuan ditolak'}
-            add_event(connection, row, account, labels[body.action], body.note if body.action in ('request-revision', 'reject') else None)
+                'start-review': 'Tinjauan dokumen dimulai', 'request-revision': 'Revisi diminta', 'accept': 'Pengajuan diterima (simulasi)', 'reject': 'Pengajuan ditolak (simulasi)'}
+            add_event(connection, row, account, labels[body.action], body.note if decision else None)
             return present(connection, row, account)
 
     @app.get(PREFIX + '/admin/assignments')

@@ -66,3 +66,17 @@ class LabInput(Model):
     fixture: Literal['personal-json', 'identity-png', 'document-pdf', 'video-mp4']
     repetitions: int = Field(default=30, ge=30, le=100, strict=True)
     warmups: Literal[2] = 2
+
+class EvidenceCheck(Model):
+    evidence_id: str = Field(min_length=1, max_length=36)
+    evidence_version: int = Field(ge=1, strict=True)
+    readable: bool = Field(strict=True)
+    correct_document_type: bool = Field(strict=True)
+    matches_applicant_form: bool = Field(strict=True)
+    needs_clarification: bool = Field(strict=True)
+    reason_code: Literal['VERIFIED', 'UNREADABLE', 'WRONG_DOCUMENT_TYPE', 'MISMATCH', 'CLARIFICATION']
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ReviewChecks(Versioned):
+    checks: list[EvidenceCheck] = Field(min_length=1, max_length=4)

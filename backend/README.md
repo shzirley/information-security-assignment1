@@ -54,7 +54,7 @@ Nama konfigurasi `KYC_DATABASE_URL` sengaja berbeda dari `DATABASE_URL` legacy a
 
 ## Skema dan transaksi
 
-Alembic `0001_bankkyc` membuat tabel BankKYC terpisah: `kyc_users`, `kyc_sessions`, `applications`, `reviewer_assignments`, `encrypted_objects`, `personal_data_versions`, `evidence_versions`, `case_events`, `lab_runs`, `lab_lock`, `kyc_rate_limits`, `security_events`, `kyc_key_state`. Tabel Alembic mencatat revisi skema. `schema-mysql.sql` hanya referensi DDL; migrasi juga menginisialisasi lock lab dan pemeriksaan kunci.
+Alembic `0001_bankkyc` membuat tabel BankKYC terpisah: `kyc_users`, `kyc_sessions`, `applications`, `reviewer_assignments`, `encrypted_objects`, `personal_data_versions`, `evidence_versions`, `case_events`, `lab_runs`, `lab_lock`, `kyc_rate_limits`, `security_events`, `kyc_key_state`. Revisi `0002_document_review` menambah subtype bukti, referensi checklist dan analisis terenkripsi, serta field audit. Tabel Alembic mencatat revisi skema. `schema-mysql.sql` hanya referensi DDL; migrasi juga menginisialisasi lock lab dan pemeriksaan kunci.
 
 Data profil dan bukti bersifat append-only per versi. Berkas asli tidak disimpan pada folder publik/disk upload. Seluruh byte, nama file privat, checksum dan catatan masuk envelope terenkripsi. Kolom operasional minimum menyimpan relasi, kategori, ukuran, tipe MIME terverifikasi, status, peran dan waktu.
 
@@ -95,9 +95,13 @@ Prefix `/api/v1`. Swagger: `/docs`; JSON: `/openapi.json`. Salinan spesifikasi d
 | GET | /applications/{id} | Pemilik atau reviewer ditugaskan |
 | GET / PUT | /applications/{id}/personal-data | Pemilik; PUT hanya DRAFT/NEEDS_REVISION |
 | GET | /applications/{id}/personal-data/download | Pemilik; attachment JSON canonical |
-| POST | /applications/{id}/evidence | Pemilik; multipart file/category/version |
+| POST | /applications/{id}/evidence | Pemilik; multipart file/category/version, dengan document_type opsional |
 | GET | /applications/{id}/evidence/{evidenceId}/download | Pemilik; seluruh versi, parent ID harus cocok |
-| POST | /applications/{id}/actions | Status/peran/assignment diperiksa server |
+| GET | /applications/{id}/review/profile | Empat field profil untuk reviewer yang ditugaskan |
+| GET | /applications/{id}/evidence/{evidenceId}/review-preview | Pratinjau bukti aktif untuk reviewer yang ditugaskan |
+| GET / POST | /applications/{id}/review/checks | Checklist terenkripsi; perubahan hanya saat UNDER_REVIEW |
+| GET / POST | /applications/{id}/evidence/{evidenceId}/analysis | Baca atau jalankan analisis untuk versi bukti dan profil aktif |
+| POST | /applications/{id}/actions | Keputusan reviewer memakai checklist tersimpan dan alasan |
 | GET / PUT | /admin/assignments, /admin/assignments/{id} | Admin; metadata tanpa profil/nama berkas/note |
 | GET / POST | /lab/runs | Evaluator, fixture terisolasi dan hasil miliknya |
 | GET | /lab/runs/{id}, /lab/runs/{id}/export | Evaluator pemilik hasil |
@@ -106,11 +110,13 @@ Sesi berupa token acak HttpOnly; DB hanya menyimpan hash SHA-256. CSRF signed do
 
 Alur status: DRAFT → SUBMITTED → UNDER_REVIEW → ACCEPTED_DEMO/REJECTED_DEMO, atau UNDER_REVIEW → NEEDS_REVISION → RESUBMITTED → UNDER_REVIEW. Withdrawal hanya DRAFT/NEEDS_REVISION. Penugasan manual admin hanya pada SUBMITTED/RESUBMITTED. Semua transisi lain ditolak tanpa perubahan sebagian.
 
+Rincian payload, kode respons, dan panduan demo ada pada [handoff integrasi backend](../HANDOFF_JAHHAZA_TO_TEAM.md).
+
 ## Format, enkripsi dan lab
 
 Profil delapan string wajib, maksimal 500 karakter per field; DUMMY identity, example-domain email, dummy phone dan tanggal nyata di masa lalu divalidasi ulang di server. PNG/JPEG dibaca/di-decode dan dibatasi 20 juta piksel; PDF dibaca parser, tanpa password, maksimal 500 halaman; DOCX diperiksa struktur OOXML, ukuran unpack, path dan rasio kompresi; MP4 diperiksa box container dan ffprobe, durasi 10–30 detik. Parser tetap bukan antivirus atau bukti keaslian identitas.
 
-Request cap 34 MiB diperiksa dari stream, bukan hanya Content-Length. Multipart hanya menerima satu file dan dua field metadata. Threshold spool berada di atas batas request; tes melarang rollover plaintext ke disk untuk identitas 5 MiB dan video 30 MiB. Batas file per kategori mengikuti FE.
+Request cap 34 MiB diperiksa dari stream, bukan hanya Content-Length. Multipart menerima satu file, kategori, versi pengajuan, dan subtype opsional. Threshold spool berada di atas batas request; tes melarang rollover plaintext ke disk untuk identitas 5 MiB dan video 30 MiB. Batas file per kategori mengikuti FE.
 
 Envelope `vtx-kyc-layered-v1`: metadata privat + raw payload → RC4/drop3072 → DES-CBC/PKCS7 → AES-256-GCM. AAD mengikat ID objek/kasus/pemilik/kategori/versi serta parameter cipher. Bundle 3 kunci acak terpisah dibungkus AES-GCM dengan KEK lokal. Unique constraint key-version/wrap-nonce menolak reuse, disertai retry. Recovery mengecek wrapper/GCM/hash sebelum mengirim byte apa pun. Kehilangan KEK tidak dapat dipulihkan dari database.
 
