@@ -175,89 +175,6 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
           </div>
           {exportRun.error && <ErrorState error={exportRun.error} />}
 
-          {/* Executive Summary Cards - Sangat Mudah Dibaca & Dipahami */}
-          {(() => {
-            const aesRow = selected.rows.find(r => r.algorithm === 'AES-GCM') || selected.rows[0];
-            const desRow = selected.rows.find(r => r.algorithm === 'DES-CBC');
-            const speedRatio = desRow && aesRow && aesRow.encrypt_ms > 0
-              ? (desRow.encrypt_ms / aesRow.encrypt_ms).toFixed(1)
-              : '1.8';
-
-            return (
-              <div
-                style={{
-                  margin: '0 24px 20px 24px',
-                  padding: '16px 20px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%)',
-                  border: '1px solid rgba(37, 99, 235, 0.25)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '18px' }}>💡</span>
-                    <strong style={{ fontSize: '13px', color: 'var(--foreground)' }}>
-                      Ringkasan Eksekutif (Kesimpulan Cepat Hasil Benchmark):
-                    </strong>
-                  </div>
-                  <span className="status-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 }}>
-                    ✓ {selected.rows.every(r => r.round_trip_ok) ? 'Semua Cipher Lolos Pemulihan (Byte Identik)' : 'Eksperimen Selesai'}
-                  </span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
-                  <div style={{ background: 'var(--surface)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-                      ⚡ Algoritma Tercepat
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)', marginTop: '4px' }}>
-                      {aesRow?.algorithm || 'AES-GCM'} ({aesRow ? `${aesRow.encrypt_ms.toFixed(2)} ms` : 'Tercepat'})
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                      {speedRatio}x lebih cepat dibanding DES-CBC berkat hardware AES-NI.
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'var(--surface)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-                      🛡️ Rekomendasi Bank
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#10b981', marginTop: '4px' }}>
-                      AES-256-GCM (AEAD)
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                      Kerahasiaan + Tag GMAC 128-bit + Pengikatan Identitas AAD.
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'var(--surface)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-                      🎲 Keacakan Ciphertext (Slide 2)
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#8b5cf6', marginTop: '4px' }}>
-                      Entropi ~7.999 bit/byte
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                      Avalanche Effect: 50.2% (Mendekati acak murni, data terlindungi).
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'var(--surface)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>
-                      ⚠️ Status Cipher Lain
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#d97706', marginTop: '4px' }}>
-                      DES & RC4 (Hanya Kuliah)
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-                      Tidak aman untuk bank riil; rentan manipulasi bit & brute-force.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
           {/* Tab Navigation for Benchmark Visualizations */}
           <div style={{ display: 'flex', gap: '8px', padding: '0 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
             <button
@@ -342,12 +259,6 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
                     <span style={{ width: '12px', height: '12px', background: '#10b981', borderRadius: '3px', display: 'inline-block' }} /> Dekripsi
                   </span>
                 </div>
-              </div>
-
-              {/* Tips Membaca Singkat */}
-              <div style={{ padding: '10px 14px', background: 'var(--surface)', borderRadius: '6px', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '12px', color: 'var(--foreground)' }}>
-                💡 <strong>Cara Membaca Grafik:</strong> Semakin pendek batang dan semakin kecil angka milidetik (ms), berarti algoritma tersebut <strong>semakin cepat</strong>.
-                AES-256-GCM unggul cepat karena diproses langsung oleh instruksi chip prosesor (AES-NI).
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
