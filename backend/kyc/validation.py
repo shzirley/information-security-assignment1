@@ -42,7 +42,7 @@ def validate(data, filename, category, ffprobe='ffprobe'):
         if extension == 'pdf':
             if not data.startswith(b'%PDF-') or b'%%EOF' not in data[-2048:]:
                 raise InvalidFile('Struktur PDF tidak valid.')
-            reader = PdfReader(io.BytesIO(data), strict=True)
+            reader = PdfReader(io.BytesIO(data), strict=False)
             if reader.is_encrypted or not 1 <= len(reader.pages) <= 500:
                 raise InvalidFile('PDF terkunci atau jumlah halaman tidak didukung.')
             for page in reader.pages:

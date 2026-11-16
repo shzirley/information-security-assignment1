@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileUp, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Crop, FileUp, LockKeyhole } from 'lucide-react';
 import { Button, ErrorState, LoadingState, Modal, PageHeading } from '@/components/ui';
 import { useToast } from '@/components/providers';
 import { kycApi } from '@/lib/kyc-api';
 import { isMock } from '@/lib/contracts';
 import { blankProfile, categories, completeness, editable, evidenceFor, evidenceRules, fileError, profileErrors, profileLabels, syntheticProfile, type ApplicantProfile, type Application, type EvidenceCategory } from '@/lib/kyc';
 import { StatusPill } from './case-list';
+import { KtpCropperModal } from './ktp-cropper-modal';
 
 const steps = ['Data pribadi', 'Scan identitas', 'Dokumen', 'Video', 'Tinjau & kirim'];
 export function NewApplication() {
@@ -69,9 +70,174 @@ function ProfileStep({ application, onSaved }: { application: Application; onSav
   </form>;
 }
 function UploadStep({ category, application, onSaved, onNext, onBack }: { category: EvidenceCategory; application: Application; onSaved: (updated: Application) => void; onNext: () => void; onBack: () => void }) {
-  const [file, setFile] = useState<File | null>(null); const [error, setError] = useState('');
-  const current = evidenceFor(application, category); const rule = evidenceRules[category]; const input = useRef<HTMLInputElement>(null);
-  const upload = useMutation({ mutationFn: () => kycApi.upload(application.id, category, file!, application.version), onSuccess: updated => { setFile(null); if (input.current) input.current.value = ''; onSaved(updated); } });
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [rawImageFile, setRawImageFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string | null>(null);
+
+  const current = evidenceFor(application, category);
+  const rule = evidenceRules[category];
+  const input = useRef<HTMLInputElement>(null);
+
+  const upload = useMutation({
+    mutationFn: () => kycApi.upload(application.id, category, file!, application.version),
+    onSuccess: updated => {
+      setFile(null);
+      setRawImageFile(null);
+      setCroppedPreviewUrl(null);
+      if (input.current) input.current.value = '';
+      onSaved(updated);
+    },
+  });
+
   useUnsavedChanges(file !== null);
-  return <div className="wizard-body"><p>{rule.description}</p><div className="upload-zone"><FileUp size={35} strokeWidth={1.5} aria-hidden="true" /><strong>{current ? 'Unggah versi baru' : 'Pilih berkas dummy'}</strong><p>{rule.extensions.join(' / ').toUpperCase()} · Maks. {rule.size}</p><label htmlFor={`upload-${category}`} className="sr-only">Berkas {rule.label}</label><input ref={input} id={`upload-${category}`} type="file" accept={rule.accept} aria-describedby="upload-help upload-error" aria-invalid={!!error} disabled={upload.isPending} onChange={e => { const selected = e.target.files?.[0]; const invalid = selected ? fileError(selected, category) : ''; setError(invalid); setFile(selected && !invalid ? selected : null); }} /><span id="upload-help" className="small-note">Pemilihan file belum menyimpan. Tekan unggah untuk menyimpan langkah ini.</span></div>{error && <p id="upload-error" className="form-error" role="alert">{error}</p>}{file && <div className="upload-pending"><span>{file.name}</span><Button busy={upload.isPending} onClick={() => upload.mutate()}>Unggah {current ? `versi ${current.version + 1}` : 'berkas'}</Button></div>}{upload.error && <ErrorState error={upload.error} />}{current && <div className="upload-current"><Check size={20} aria-hidden="true" /><div><strong>{current.display_name}</strong><p>Versi {current.version} tersimpan · Validasi format awal{isMock ? ', bukan bukti enkripsi' : ''}</p></div></div>}<div className="wizard-actions"><Button variant="secondary" disabled={upload.isPending || !!file} onClick={onBack}><ArrowLeft size={16} aria-hidden="true" />Kembali</Button><Button disabled={!current || upload.isPending || !!file} onClick={onNext}>Lanjutkan <ArrowRight size={16} aria-hidden="true" /></Button></div><p className="small-note">Berkas baru menjadi versi tambahan. Versi lama tetap tersedia pada detail pengajuan.</p></div>;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    const invalid = selected ? fileError(selected, category) : '';
+    setError(invalid);
+    if (selected && !invalid) {
+      if (category === 'identity' && selected.type.startsWith('image/')) {
+        setRawImageFile(selected);
+        setCropOpen(true);
+      } else {
+        setFile(selected);
+        setCroppedPreviewUrl(null);
+      }
+    } else {
+      setFile(null);
+      setRawImageFile(null);
+      setCroppedPreviewUrl(null);
+    }
+  };
+
+  return (
+    <div className="wizard-body">
+      <p>{rule.description}</p>
+      {category === 'identity' && (
+        <KtpCropperModal
+          open={cropOpen}
+          onOpenChange={setCropOpen}
+          file={rawImageFile}
+          onApply={(cropped, previewUrl) => {
+            setFile(cropped);
+            setCroppedPreviewUrl(previewUrl);
+          }}
+        />
+      )}
+
+      <div className="upload-zone">
+        <FileUp size={35} strokeWidth={1.5} aria-hidden="true" />
+        <strong>{current ? 'Unggah versi baru' : 'Pilih berkas dummy'}</strong>
+        <p>
+          {rule.extensions.join(' / ').toUpperCase()} · Maks. {rule.size}
+        </p>
+        <label htmlFor={`upload-${category}`} className="sr-only">
+          Berkas {rule.label}
+        </label>
+        <input
+          ref={input}
+          id={`upload-${category}`}
+          type="file"
+          accept={rule.accept}
+          aria-describedby="upload-help upload-error"
+          aria-invalid={!!error}
+          disabled={upload.isPending}
+          onChange={handleFileChange}
+        />
+        <span id="upload-help" className="small-note">
+          {category === 'identity'
+            ? 'Foto KTP dapat dipaskan di jendela crop agar NIK dan foto tepat berada di dalam bingkai.'
+            : 'Pemilihan file belum menyimpan. Tekan unggah untuk menyimpan langkah ini.'}
+        </span>
+      </div>
+
+      {error && (
+        <p id="upload-error" className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {file && (
+        <div
+          className="upload-pending"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {croppedPreviewUrl && (
+              <img
+                src={croppedPreviewUrl}
+                alt="Pratinjau KTP Terpaskan"
+                style={{
+                  width: '85px',
+                  height: '54px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '1.5px solid var(--primary, #2563eb)',
+                }}
+              />
+            )}
+            <div>
+              <span style={{ fontWeight: 600, fontSize: '13px', display: 'block' }}>{file.name}</span>
+              {croppedPreviewUrl && (
+                <small
+                  style={{
+                    color: 'var(--success, #16a34a)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontWeight: 500,
+                  }}
+                >
+                  <Check size={13} /> Terpaskan bingkai KTP standar (856x540)
+                </small>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {category === 'identity' && rawImageFile && (
+              <Button variant="secondary" onClick={() => setCropOpen(true)}>
+                <Crop size={15} aria-hidden="true" />
+                Paskan ulang
+              </Button>
+            )}
+            <Button busy={upload.isPending} onClick={() => upload.mutate()}>
+              Unggah {current ? `versi ${current.version + 1}` : 'berkas'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {upload.error && <ErrorState error={upload.error} />}
+
+      {current && (
+        <div className="upload-current">
+          <Check size={20} aria-hidden="true" />
+          <div>
+            <strong>{current.display_name}</strong>
+            <p>Versi {current.version} tersimpan · Validasi format awal{isMock ? ', bukan bukti enkripsi' : ''}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="wizard-actions">
+        <Button variant="secondary" disabled={upload.isPending || !!file} onClick={onBack}>
+          <ArrowLeft size={16} aria-hidden="true" />
+          Kembali
+        </Button>
+        <Button disabled={!current || upload.isPending || !!file} onClick={onNext}>
+          Lanjutkan <ArrowRight size={16} aria-hidden="true" />
+        </Button>
+      </div>
+      <p className="small-note">Berkas baru menjadi versi tambahan. Versi lama tetap tersedia pada detail pengajuan.</p>
+    </div>
+  );
 }

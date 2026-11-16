@@ -18,3 +18,5 @@ __pycache__/
 ~$*
 .paddlex/
 inference/
+backend/temp_pytest/
+temp_pytest/
