@@ -106,7 +106,7 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
           }}
         >
           <div className="field">
-            <label htmlFor="lab-fixture">Pilih Data Uji (Ukuran File)</label>
+            <label htmlFor="lab-fixture">Data Uji (Fixture)</label>
             <select id="lab-fixture" value={fixture} onChange={e => setFixture(e.target.value)} disabled={run.isPending}>
               {Object.entries(fixtureLabels).map(([id, label]) => (
                 <option key={id} value={id}>
@@ -116,7 +116,7 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="lab-repetitions">Jumlah Siklus Pengukuran (Sampel)</label>
+            <label htmlFor="lab-repetitions">Jumlah Siklus</label>
             <input
               id="lab-repetitions"
               type="number"
@@ -127,9 +127,6 @@ export function LabWorkspace({ kind }: { kind: LabRun['kind'] }) {
               onChange={e => setRepetitions(Number(e.target.value))}
               disabled={run.isPending}
             />
-            <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'block' }}>
-              Standar: 30x pengulangan untuk statistik valid
-            </span>
           </div>
           <Button type="submit" busy={run.isPending} disabled={!Number.isInteger(repetitions) || repetitions < 30 || repetitions > 100}>
             <Play size={16} aria-hidden="true" />
