@@ -13,11 +13,11 @@ import { blankProfile, categories, completeness, editable, evidenceFor, evidence
 import { StatusPill } from './case-list';
 import { KtpCropperModal } from './ktp-cropper-modal';
 
-const steps = ['Data pribadi', 'Scan identitas', 'Dokumen', 'Video', 'Tinjau & kirim'];
+const steps = ['Data pribadi', 'KTP dummy', 'Dokumen administrasi', 'Video verifikasi', 'Tinjau & kirim'];
 export function NewApplication() {
   const router = useRouter(); const client = useQueryClient();
   const create = useMutation({ mutationFn: kycApi.create, onSuccess: application => { client.setQueryData(['application', application.id], application); client.invalidateQueries({ queryKey: ['applications'] }); router.push(`/applicant/applications/${application.id}/edit`); } });
-  return <><PageHeading index="Pengajuan baru" title="Mulai dari bukti yang tepat." description="Siapkan profil dan dokumen untuk peninjauan pengajuanmu." /><section className="panel new-application"><div className="new-application-intro"><LockKeyhole size={32} aria-hidden="true" /><h2>Siapkan empat kategori bukti.</h2><p>Profil pribadi, scan identitas, dokumen administrasi, dan video verifikasi. Periksa setiap langkah sebelum pengiriman.</p></div><ol className="new-checklist">{steps.map((step, i) => <li key={step}><span>0{i + 1}</span><div><strong>{step}</strong><p>{i === 0 ? 'Profil, pekerjaan, dan tujuan pengajuan.' : i === 4 ? 'Periksa kelengkapan dan konfirmasi data sintetis.' : evidenceRules[categories[i - 1]].description}</p></div></li>)}</ol><div className="inline-note">Gunakan data uji dan simpan tiap langkah sebelum berpindah.{isMock && ' Data belum dienkripsi, tersimpan sementara di browser, dan hilang saat halaman dimuat ulang.'}</div>{create.error && <ErrorState error={create.error} />}<div className="wizard-actions"><Link href="/applicant/applications" className="text-link">Kembali ke pengajuan</Link><Button busy={create.isPending} onClick={() => create.mutate()}>Buat draf & mulai <ArrowRight size={17} aria-hidden="true" /></Button></div></section></>;
+  return <><PageHeading index="Pengajuan baru" title="Mulai dari bukti yang tepat." description="Siapkan profil dan dokumen untuk peninjauan pengajuanmu." /><section className="panel new-application"><div className="new-application-intro"><LockKeyhole size={32} aria-hidden="true" /><h2>Siapkan empat kategori bukti.</h2><p>Data pribadi, KTP dummy, formulir pembukaan rekening, dan video verifikasi wajib. KK dummy opsional. Periksa setiap langkah sebelum pengiriman.</p></div><ol className="new-checklist">{steps.map((step, i) => <li key={step}><span>0{i + 1}</span><div><strong>{step}</strong><p>{i === 0 ? 'Profil, pekerjaan, dan tujuan pengajuan.' : i === 4 ? 'Periksa kelengkapan dan konfirmasi data sintetis.' : evidenceRules[categories[i - 1]].description}</p></div></li>)}</ol><div className="inline-note">Gunakan data uji dan simpan tiap langkah sebelum berpindah.{isMock && ' Data belum dienkripsi, tersimpan sementara di browser, dan hilang saat halaman dimuat ulang.'}</div>{create.error && <ErrorState error={create.error} />}<div className="wizard-actions"><Link href="/applicant/applications" className="text-link">Kembali ke pengajuan</Link><Button busy={create.isPending} onClick={() => create.mutate()}>Buat draf & mulai <ArrowRight size={17} aria-hidden="true" /></Button></div></section></>;
 }
 export function ApplicationWizard({ id }: { id: string }) {
   const query = useQuery({ queryKey: ['application', id], queryFn: () => kycApi.application(id) });
@@ -228,6 +228,9 @@ function UploadStep({ category, application, onSaved, onNext, onBack }: { catego
         </div>
       )}
 
+      {/* shortcut: mock handlers ignore document_type, so the KK slot is live-only */}
+      {category === 'document' && !isMock && <OptionalKkUpload application={application} onSaved={onSaved} />}
+
       <div className="wizard-actions">
         <Button variant="secondary" disabled={upload.isPending || !!file} onClick={onBack}>
           <ArrowLeft size={16} aria-hidden="true" />
@@ -239,5 +242,29 @@ function UploadStep({ category, application, onSaved, onNext, onBack }: { catego
       </div>
       <p className="small-note">Berkas baru menjadi versi tambahan. Versi lama tetap tersedia pada detail pengajuan.</p>
     </div>
+  );
+}
+function OptionalKkUpload({ application, onSaved }: { application: Application; onSaved: (updated: Application) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const current = application.evidence.filter(e => e.document_type === 'kk_optional').sort((a, b) => b.version - a.version)[0];
+  const upload = useMutation({
+    mutationFn: () => kycApi.upload(application.id, 'document', file!, application.version, 'kk_optional'),
+    onSuccess: updated => { setFile(null); if (input.current) input.current.value = ''; onSaved(updated); },
+  });
+  return (
+    <fieldset className="field">
+      <legend><strong>KK dummy (opsional)</strong></legend>
+      <p className="small-note">Tambahkan hanya bila relevan. KK tidak wajib dan tidak menentukan kelengkapan pengajuan. PNG / JPG / PDF · Maks. 5 MiB.</p>
+      <label htmlFor="upload-kk" className="sr-only">Berkas KK dummy</label>
+      {/* KK is validated server-side with the identity rules (PNG/JPG/PDF, 5 MiB). */}
+      <input ref={input} id="upload-kk" type="file" accept={evidenceRules.identity.accept} aria-describedby="upload-kk-error" aria-invalid={!!error} disabled={upload.isPending}
+        onChange={e => { const selected = e.target.files?.[0] ?? null; const invalid = selected ? fileError(selected, 'identity') : ''; setError(invalid); setFile(selected && !invalid ? selected : null); }} />
+      {error && <p id="upload-kk-error" className="form-error" role="alert">{error}</p>}
+      {file && <Button variant="secondary" busy={upload.isPending} onClick={() => upload.mutate()}>Unggah KK {current ? `versi ${current.version + 1}` : ''}</Button>}
+      {upload.error && <ErrorState error={upload.error} />}
+      {current && <p className="small-note"><Check size={14} aria-hidden="true" /> {current.display_name} · versi {current.version} tersimpan</p>}
+    </fieldset>
   );
 }

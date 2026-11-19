@@ -7,7 +7,7 @@ import { useMotionPreference } from '@/lib/use-motion-preference';
 
 const items = [
   { Icon: UserRound, number: '01', title: 'Data pribadi', format: 'Profil JSON', detail: 'Identitas, kontak, dan tujuan pengajuan.' },
-  { Icon: IdCard, number: '02', title: 'Scan identitas', format: 'PNG / JPG / PDF', detail: 'Salinan dokumen identitas pemohon.' },
+  { Icon: IdCard, number: '02', title: 'KTP dummy', format: 'PNG / JPG / PDF', detail: 'KTP sintetis pemohon (wajib).' },
   { Icon: FileText, number: '03', title: 'Dokumen kantor', format: 'PDF / DOCX', detail: 'Formulir dan surat administrasi pendukung.' },
   { Icon: Video, number: '04', title: 'Video verifikasi', format: 'MP4', detail: 'Berkas video sebagai kelengkapan pengajuan.' },
 ];

@@ -8,9 +8,9 @@ export const statusLabels = {
 export type CaseStatus = keyof typeof statusLabels;
 export type EvidenceCategory = 'identity' | 'document' | 'video';
 export const evidenceRules = {
-  identity: { label: 'Scan identitas', description: 'Kartu identitas sintetis bertanda DUMMY.', extensions: ['png', 'jpg', 'jpeg', 'pdf'], accept: '.png,.jpg,.jpeg,.pdf', max: 5 * 1024 ** 2, size: '5 MiB' },
-  document: { label: 'Dokumen administrasi', description: 'Formulir pembukaan rekening atau surat pekerjaan fiktif.', extensions: ['pdf', 'docx'], accept: '.pdf,.docx', max: 10 * 1024 ** 2, size: '10 MiB' },
-  video: { label: 'Video verifikasi', description: 'Video simulasi 10–30 detik tanpa identitas asli. Tidak ada pemeriksaan biometrik.', extensions: ['mp4'], accept: '.mp4', max: 30 * 1024 ** 2, size: '30 MiB' },
+  identity: { label: 'KTP dummy', description: 'Wajib. KTP sintetis yang terbaca; nama dan tanggal lahir harus sama dengan data pribadi.', extensions: ['png', 'jpg', 'jpeg', 'pdf'], accept: '.png,.jpg,.jpeg,.pdf', max: 5 * 1024 ** 2, size: '5 MiB' },
+  document: { label: 'Formulir pembukaan rekening', description: 'Wajib. Formulir pembukaan rekening sintetis (PDF/DOCX). KK dummy dapat ditambahkan bila relevan.', extensions: ['pdf', 'docx'], accept: '.pdf,.docx', max: 10 * 1024 ** 2, size: '10 MiB' },
+  video: { label: 'Video verifikasi', description: 'Wajib untuk simulasi ini. MP4 sintetis 10–30 detik; diperiksa manual, bukan verifikasi liveness otomatis.', extensions: ['mp4'], accept: '.mp4', max: 30 * 1024 ** 2, size: '30 MiB' },
 } satisfies Record<EvidenceCategory, { label: string; description: string; extensions: string[]; accept: string; max: number; size: string }>;
 export const categories = Object.keys(evidenceRules) as EvidenceCategory[];
 export const roleLabels: Record<Role, string> = { applicant: 'Pemohon', reviewer: 'Reviewer', admin: 'Admin operasional', evaluator: 'Evaluator' };
