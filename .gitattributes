@@ -1,0 +1,8 @@
+# PDF xref offsets break if Git rewrites line endings (core.autocrlf on Windows).
+*.pdf binary
+*.docx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.zip binary
