@@ -18,6 +18,8 @@ Specifications, brand references, setup guides, and verification records for VEL
 | `guides/` | [Local setup and troubleshooting](guides/PANDUAN_MENJALANKAN.md) | Running, operating, and backing up the local application |
 | `verification/` | [Implementation verification](verification/VERIFIKASI.md), [UI audit](verification/ANTISLOP_QA.md), [Next.js security upgrade](verification/SECURITY_UPGRADE.md) | Dated checks with their original scope and limitations |
 | `references/` | [Assignment image 1](references/ki1.jpeg), [assignment image 2](references/ki2.jpeg), [brand identity board](<references/Veltrix Secure Brand Identity Board.png>) | Original materials supplied for this project |
+| `assignment-1/` | [Revision task distribution](assignment-1/VELTRIX_Assignment1_Revision_Task_Distribution.md), [acceptance checklist](assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md), [OCR evaluation](assignment-1/OCR_EVALUATION.md), [Jorell work notes](assignment-1/JORELL_WORK_INSTRUCTIONS_AND_REFERENCE.md), handoffs from [Jahhaza](assignment-1/handoffs/HANDOFF_JAHHAZA_TO_TEAM.md), [Jorell](assignment-1/handoffs/HANDOFF_JORELL_TO_TEAM.md), and [Maleka](assignment-1/handoffs/HANDOFF_MALEKA_TO_TEAM.md) | Assignment 1 revision: plan, team handoffs, and evidence |
+| `assignment-2/` | [Scenario](assignment-2/ASSIGNMENT_2_SCENARIO_OPTIONS.md), [implementation plan](assignment-2/ASSIGNMENT_2_IMPLEMENTATION_PLAN.md), [task distribution](assignment-2/ASSIGNMENT_2_TASK_DISTRIBUTION.md), [key management concepts](assignment-2/ASSIGNMENT_2_KEY_MANAGEMENT.md) | Assignment 2 (key management): scenario, design, and team tasks |
 
 ## Guides beside the code
 
@@ -28,4 +30,4 @@ Specifications, brand references, setup guides, and verification records for VEL
 
 Command examples and inline source paths refer to the repository root unless a document explicitly names another working directory. Moving a guide does not change where its commands should run. Relative links resolve from the document containing them.
 
-Keep new requirements in `prd/`, brand decisions in `design/`, operational instructions in `guides/`, dated test/audit records in `verification/`, and original reference materials in `references/`. Keep executable scripts, application assets, and configuration with their owning code.
+Keep new requirements in `prd/`, brand decisions in `design/`, operational instructions in `guides/`, dated test/audit records in `verification/`, original reference materials in `references/`, and assignment-specific plans, handoffs, and evidence in `assignment-1/` or `assignment-2/`. Keep executable scripts, application assets, and configuration with their owning code.

@@ -65,7 +65,7 @@ Tabel berikut memetakan 18 skenario uji end-to-end yang disepakati untuk membukt
   - Status Akhir: `manual_review_required: True` (0% False Acceptance).
 
 ### D. E2E-17: Data Benchmark Kuantitatif untuk Visualisasi Frontend
-* **Sumber Data:** File evaluasi riil [`docs/verification/OCR_EVALUATION.md`](file:///c:/Users/User/Documents/Kuliah/Semester%205/Keamanan%20Informasi/information-security-assignment1/docs/verification/OCR_EVALUATION.md).
+* **Sumber Data:** File evaluasi riil [`docs/assignment-1/OCR_EVALUATION.md`](OCR_EVALUATION.md).
 * **Rangkuman Angka Pengukuran Asli:**
   - Akurasi Field Match KTP Jelas: **100% (3/3)**
   - Deteksi Intentional Mismatch: **100% (2/2)**

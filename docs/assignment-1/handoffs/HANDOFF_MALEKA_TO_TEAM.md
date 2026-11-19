@@ -11,7 +11,7 @@
 
 ## 1. Ringkasan Eksekutif Pekerjaan Maleka
 
-Sesuai dokumen pembagian tugas tim ([`VELTRIX_Assignment1_Revision_Task_Distribution.md`](docs/guides/VELTRIX_Assignment1_Revision_Task_Distribution.md)), Maleka Ghaniya bertanggung jawab penuh atas **keamanan kriptografi inti, proteksi data saat istirahat (*data at rest*), autentikasi akses pratinjau dokumen, dan pengujian ketahanan serangan (*anti-tampering & boundary testing*)**.
+Sesuai dokumen pembagian tugas tim ([`VELTRIX_Assignment1_Revision_Task_Distribution.md`](../VELTRIX_Assignment1_Revision_Task_Distribution.md)), Maleka Ghaniya bertanggung jawab penuh atas **keamanan kriptografi inti, proteksi data saat istirahat (*data at rest*), autentikasi akses pratinjau dokumen, dan pengujian ketahanan serangan (*anti-tampering & boundary testing*)**.
 
 Seluruh pekerjaan `M-SEC-01` hingga `M-SEC-04` telah selesai diimplementasikan, diuji, dan diintegrasikan dengan modul backend (Caca/Jahhaza) dan mesin analisis dokumen (Jorell):
 

@@ -11,7 +11,7 @@
 
 ## 1. Ringkasan yang Sudah Dikerjakan & Siap Dipakai
 
-Sesuai pembagian tugas pada [`VELTRIX_Assignment1_Revision_Task_Distribution.md`](./VELTRIX_Assignment1_Revision_Task_Distribution.md), seluruh tugas Jorell (`J-BE-01`, `J-BE-02`, `J-QA-03`, `J-DOC-04`, `J-QA-05`) telah selesai dibangun dan diuji.
+Sesuai pembagian tugas pada [`VELTRIX_Assignment1_Revision_Task_Distribution.md`](../VELTRIX_Assignment1_Revision_Task_Distribution.md), seluruh tugas Jorell (`J-BE-01`, `J-BE-02`, `J-QA-03`, `J-DOC-04`, `J-QA-05`) telah selesai dibangun dan diuji.
 
 Semua kode bersifat modular, tidak mengubah cipher pipeline inti, dan siap dipanggil langsung oleh modul backend lainnya:
 
@@ -145,7 +145,7 @@ Return value sudah persis memenuhi kontrak API yang disepakati untuk `GET /api/v
      - Indikator: Badge hijau untuk `MATCH`, badge merah untuk `MISMATCH`, badge kuning untuk `NOT_DETECTED` atau `MANUAL_REVIEW_REQUIRED`.
 2. **Grafik & Tabel Benchmark Riil (E2E-17):**
    - Asdos meminta agar halaman benchmark sistem menampilkan angka pengujian asli, bukan dummy mock.
-   - Anda dapat mengambil seluruh data matriks kuantitatif dari dokumen [`docs/verification/OCR_EVALUATION.md`](./docs/verification/OCR_EVALUATION.md):
+   - Anda dapat mengambil seluruh data matriks kuantitatif dari dokumen [`docs/assignment-1/OCR_EVALUATION.md`](../OCR_EVALUATION.md):
      - Akurasi Field KTP Jelas: **100% (3/3)**
      - Intentional Mismatch Catch: **100% (2/2)**
      - Non-KTP Rejection: **100% (2/2)**
@@ -181,7 +181,7 @@ Hasil yang diharapkan: **15 passed** tanpa error.
 
 ## 4. Status Kesiapan Skenario Demo E2E
 
-Detail lengkap 18 skenario E2E dapat dilihat di [`docs/verification/REVISION_ACCEPTANCE_CHECKLIST.md`](./docs/verification/REVISION_ACCEPTANCE_CHECKLIST.md).
+Detail lengkap 18 skenario E2E dapat dilihat di [`docs/assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md`](../REVISION_ACCEPTANCE_CHECKLIST.md).
 
 * Bagian **Jorell** (E2E-11, E2E-12, E2E-13, E2E-17) sudah berstatus **VERIFIED (PASSED)**.
 * Skenario flow pemohon dan reviewer siap diintegrasikan bersama Caca, Angela, dan Maleka saat PR digabungkan.

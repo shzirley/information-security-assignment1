@@ -21,7 +21,7 @@ Evaluasi ini mengukur akurasi ekstraksi field, deteksi ketidaksesuaian (*intenti
 
 ## 2. Inventaris Fixture Sintetis ($N = 13$)
 
-Seluruh fixture tersimpan pada direktori [`backend/fixtures/synthetic_kyc/`](file:///c:/Users/User/Documents/Kuliah/Semester%205/Keamanan%20Informasi/information-security-assignment1/backend/fixtures/synthetic_kyc) dan dipetakan dalam [`ground_truth.json`](file:///c:/Users/User/Documents/Kuliah/Semester%205/Keamanan%20Informasi/information-security-assignment1/backend/fixtures/synthetic_kyc/ground_truth.json):
+Seluruh fixture tersimpan pada direktori [`backend/fixtures/synthetic_kyc/`](../../backend/fixtures/synthetic_kyc) dan dipetakan dalam [`ground_truth.json`](../../backend/fixtures/synthetic_kyc/ground_truth.json):
 
 | No | Nama File Fixture | Kategori / Kondisi | Format | Ekspektasi Keputusan | Engine Pengolah |
 |:--:|:-------------------|:-------------------|:------:|:--------------------:|:---------------:|

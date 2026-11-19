@@ -1,4 +1,6 @@
 # Panduan Tugas: Assignment 2 - Key Management
+
+> **Catatan:** skenario dan alur final ada di [ASSIGNMENT_2_SCENARIO_OPTIONS.md](ASSIGNMENT_2_SCENARIO_OPTIONS.md) dan [ASSIGNMENT_2_IMPLEMENTATION_PLAN.md](ASSIGNMENT_2_IMPLEMENTATION_PLAN.md). Perbedaan utama: private key **tidak** dikirim ke server; browser yang membuka kunci simetris. Dokumen ini tetap berguna sebagai penjelasan konsep.
 **Mata Kuliah:** Keamanan Informasi  
 **Topik:** Manajemen Kunci, Enkripsi Hibrida (*Hybrid Encryption*), dan Berbagi Data Aman (*Secure Data Sharing*)
 

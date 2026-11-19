@@ -94,4 +94,4 @@ python -m pytest -q -k "not service_ktp_clear_puput_match and not service_ktp_in
 python scripts/smoke_kyc_live.py
 ```
 
-Gunakan `docs/guides/VELTRIX_Assignment1_Revision_Task_Distribution.md` sebagai pembagian kerja tim. Slot unggah KK sudah tersedia pada API. Form pemohon dalam ZIP ini masih memakai tiga slot unggah wajib yang sudah ada.
+Gunakan `docs/assignment-1/VELTRIX_Assignment1_Revision_Task_Distribution.md` sebagai pembagian kerja tim. Slot unggah KK sudah tersedia pada API. Form pemohon dalam ZIP ini masih memakai tiga slot unggah wajib yang sudah ada.

@@ -253,7 +253,7 @@ Jangan menggunakan label ambigu *“Upload supporting document”* tanpa menjela
 - Siapkan minimal **12 fixture sintetis**: 3 KTP clear, 2 blur/rotated, 2 nama/DOB mismatch, 2 wrong document type, 1 PDF digital form, 1 PDF scanned form, 1 DOCX form. Video sintetis tambah 1 fixture terpisah untuk preview smoke test.
 - Untuk setiap fixture: input, ground-truth field, expected status, expected reason. Jangan pakai foto KTP asli atau NIK orang asli.
 - Ukur *field exact-match rate* terhadap ground truth, coverage/NOT_DETECTED, false-match/false-accept dalam konteks aturan, inference time (terpisah dari cipher lab), dan jelaskan ukuran sampel terlalu kecil untuk klaim generalisasi.
-- **Output:** fixture pack (tanpa PII), `docs/verification/OCR_EVALUATION.md`, test code.
+- **Output:** fixture pack (tanpa PII), `docs/assignment-1/OCR_EVALUATION.md`, test code.
 - **DoD:** hasil reproducible, tiap angka ada jumlah pembilang/penyebut, failure case tidak disembunyikan.
 
 **J-DOC-04 — Revisi laporan dan evidence untuk asdos** `P0/P1`
@@ -271,7 +271,7 @@ Jangan menggunakan label ambigu *“Upload supporting document”* tanpa menjela
 - Susun test plan untuk semua role (applicant, reviewer assigned/unassigned, admin, evaluator).
 - Verifikasi bahwa browser mock tidak menjadi sumber angka benchmark atau keberhasilan crypto; demo memakai **live backend**.
 - Lakukan review akhir bersama Caca/Maleka dan tandai `Pass`, `Fail`, `Not tested` secara eksplisit.
-- **Output:** `docs/verification/REVISION_ACCEPTANCE_CHECKLIST.md`, PR summaries dan recorded demo evidence.
+- **Output:** `docs/assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md`, PR summaries dan recorded demo evidence.
 - **DoD:** semua P0 selesai, semua P1 yang diklaim selesai punya bukti; yang tidak selesai jujur tercatat.
 
 ---

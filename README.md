@@ -24,7 +24,7 @@ The Next.js frontend connects to the **FastAPI BankKYC v2 backend in live mode**
 
 Browser mocks remain available for isolated interface tests. Their temporary data and illustrative measurements are separate from the live backend. The older vault implementation remains in `backend/app/main.py` for reference and regression tests; the active entry point is `app.server:app`.
 
-See [the backend integration handoff](HANDOFF_JAHHAZA_TO_TEAM.md) and [the cryptography & security lead handoff](HANDOFF_MALEKA_TO_TEAM.md) for detailed technical implementations, review API contracts, security test matrices, and ciphertext characteristics analysis.
+See [the backend integration handoff](docs/assignment-1/handoffs/HANDOFF_JAHHAZA_TO_TEAM.md) and [the cryptography & security lead handoff](docs/assignment-1/handoffs/HANDOFF_MALEKA_TO_TEAM.md) for detailed technical implementations, review API contracts, security test matrices, and ciphertext characteristics analysis.
 
 ## Architecture
 
@@ -280,6 +280,6 @@ Start with the [documentation index](docs/README.md) for the recommended reading
 | [Backend guide](backend/README.md) | Configuration, migrations, operators, MySQL, and backup |
 | [Frontend guide](frontend/README.md) | Setup, live transport, and mock-test scope |
 | [Verification report](docs/verification/VERIFIKASI.md) | Actual test results, environments, and remaining coverage |
-| [Security Lead Handoff](HANDOFF_MALEKA_TO_TEAM.md) | Cryptography implementation, in-memory preview, document verification, and lab benchmark |
+| [Security Lead Handoff](docs/assignment-1/handoffs/HANDOFF_MALEKA_TO_TEAM.md) | Cryptography implementation, in-memory preview, document verification, and lab benchmark |
 
 The coursework submission also requires meaningful Git history, a report of at most two A4 pages explaining the scenario and design decisions, interpreted experimental results, and the actual AI conversation link and screenshot when AI assistance is used.

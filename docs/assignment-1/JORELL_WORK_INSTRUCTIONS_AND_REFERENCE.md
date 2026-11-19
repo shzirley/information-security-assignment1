@@ -107,9 +107,9 @@ Berdasarkan dokumen distribusi tugas revisi, Jorell memiliki 5 task:
   - Posisi RC4 dan DES: Hanya sebagai pembanding akademik, bukan cipher perbankan riil.
 
 ### 5. `J-QA-05` — Evaluasi & Acceptance Checklist `[P0/P1]`
-- Generate dokumen `docs/verification/OCR_EVALUATION.md`:
+- Generate dokumen `docs/assignment-1/OCR_EVALUATION.md`:
   - Tabel evaluasi 12 fixture terhadap ground truth (field exact-match rate, coverage, runtime ms per dokumen).
-- Generate dokumen `docs/verification/REVISION_ACCEPTANCE_CHECKLIST.md`:
+- Generate dokumen `docs/assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md`:
   - Checklist pengujian skenario E2E (E2E-01 s/d E2E-18) yang siap di-check bersama tim sebelum demo akhir.
 
 ---
@@ -160,5 +160,5 @@ Tandai progres di sini saat pengerjaan berlangsung:
 - [x] **Langkah 5:** Bangun modul OCR lokal (`ocr_engine.py`) dengan error handling & singleton.
 - [x] **Langkah 6:** Satukan dalam satu service facade `analyze_document(bytes, mime, doc_type, form_data)`.
 - [x] **Langkah 7:** Buat targeted unit test `tests/test_document_analysis.py` dan jalankan via pytest (15/15 passed).
-- [x] **Langkah 8:** Generate laporan evaluasi akurasi `docs/verification/OCR_EVALUATION.md`.
-- [x] **Langkah 9:** Siapkan ringkasan justifikasi hukum (UU PDP) & kriptografi (AES-GCM AAD) untuk laporan akhir (`docs/verification/REVISION_ACCEPTANCE_CHECKLIST.md`).
+- [x] **Langkah 8:** Generate laporan evaluasi akurasi `docs/assignment-1/OCR_EVALUATION.md`.
+- [x] **Langkah 9:** Siapkan ringkasan justifikasi hukum (UU PDP) & kriptografi (AES-GCM AAD) untuk laporan akhir (`docs/assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md`).
