@@ -43,6 +43,15 @@ def main():
     if not stamp.exists() or stamp.read_bytes() != requirements:
         run([python, '-m', 'pip', 'install', '-r', 'requirements.txt'], BACKEND)
         stamp.write_bytes(requirements)
+    # OCR is optional: a failed install must not block the app, so retry on the next start instead.
+    ocr_stamp = environment / '.veltrix-ocr-requirements'
+    ocr = (BACKEND / 'requirements-ocr.txt').read_bytes()
+    if not ocr_stamp.exists() or ocr_stamp.read_bytes() != ocr:
+        print('Installing local OCR (PaddleOCR, about 1 GB, first run only)...', flush=True)
+        if subprocess.run([str(python), '-m', 'pip', 'install', '-r', 'requirements-ocr.txt'], cwd=BACKEND).returncode == 0:
+            ocr_stamp.write_bytes(ocr)
+        else:
+            print('Warning: OCR install failed. The app still runs; documents fall back to manual review. Run the launcher again to retry.', flush=True)
     run([python, 'setup_env.py', '--live'], BACKEND)
     run([python, 'manage.py', 'migrate'], BACKEND)
     run([python, 'manage.py', 'demo-users'], BACKEND)
