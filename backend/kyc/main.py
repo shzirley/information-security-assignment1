@@ -1,4 +1,5 @@
 import base64
+import binascii
 import csv
 import hashlib
 import hmac
@@ -9,7 +10,7 @@ import secrets
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
 from threading import BoundedSemaphore
 from argon2 import PasswordHasher
@@ -25,9 +26,12 @@ from starlette.datastructures import UploadFile
 from .config import Settings
 from .db import (database, users, sessions, applications, assignments, objects, profiles,
                  evidence, evidence_types, events, limits, security_log, lab_runs, lab_lock,
-                 review_records, document_analyses)
+                 review_records, document_analyses, user_public_keys, share_requests, share_items)
 from .crypto import Envelope, IntegrityFailure, canonical
-from .schemas import Model, Credentials, Registration, SaveProfile, Action, Assignment, LabInput, ReviewChecks
+from .schemas import (Model, Credentials, Registration, SaveProfile, Action, Assignment, LabInput, ReviewChecks,
+                      PublicKeyRegistration, ShareRequestCreate, ShareApprove, ShareOpen)
+from .sharing_crypto import (public_key_details, package_key, wrap_key, unwrap_key,
+                             encrypt_item, decrypt_item)
 from .analysis_worker import AnalysisWorker
 from .review import (DEFAULT_TYPES, ACCEPTED_TYPES, REQUIRED, PROFILE_FIELDS, ACTIVE_REVIEW,
                      DOCX, PREVIEW_MIME, classified_evidence, current_evidence, review_slot, passed, valid_reason, docx_preview, pdf_page_preview)
@@ -744,6 +748,249 @@ def create_app(settings: Settings):
                 'start-review': 'Tinjauan dokumen dimulai', 'request-revision': 'Revisi diminta', 'accept': 'Pengajuan diterima (simulasi)', 'reject': 'Pengajuan ditolak (simulasi)'}
             add_event(connection, row, account, labels[body.action], body.note if decision else None)
             return present(connection, row, account)
+
+    # Assignment 2: all share routes require an authenticated applicant. Sensitive
+    # copies are bound to one request and can only be opened with the caller's key.
+    SHARE_KINDS = {'profile', 'identity', 'document', 'video', 'kk'}
+
+    def active_public_key(connection, user_id):
+        return connection.execute(select(user_public_keys).where(
+            user_public_keys.c.user_id == user_id, user_public_keys.c.revoked_at.is_(None))).mappings().first()
+
+    def share_event(connection, name, account, request_id, outcome='success'):
+        connection.execute(insert(security_log).values(
+            id=uid(), at=now(), actor_id=account['id'], action=name,
+            resource_id=request_id, outcome=outcome))
+
+    def share_record(connection, request_id, account, side, *, lock=False):
+        role(account, 'applicant')
+        query = select(share_requests).where(share_requests.c.id == request_id)
+        if lock:
+            query = query.with_for_update()
+        row = connection.execute(query).mappings().first()
+        party = 'owner_id' if side == 'owner' else 'requester_id'
+        if row is None or row[party] != account['id']:
+            raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Permintaan tidak ditemukan.')
+        return dict(row)
+
+    def expire_share(connection, row, account):
+        if row['status'] == 'APPROVED' and row['expires_at'] and row['expires_at'] <= now():
+            connection.execute(delete(share_items).where(share_items.c.request_id == row['id']))
+            connection.execute(update(share_requests).where(share_requests.c.id == row['id']).values(
+                status='EXPIRED', wrapped_share_key=None, wrap_nonce=None, wrap_tag=None))
+            row.update(status='EXPIRED', wrapped_share_key=None, wrap_nonce=None, wrap_tag=None)
+            share_event(connection, 'SHARE_EXPIRED', account, row['id'])
+        return row
+
+    def refresh_share_expiry(request_id, account, side):
+        # Commit expiry/shredding before a later request can fail its own transaction.
+        with engine.begin() as connection:
+            expire_share(connection, share_record(connection, request_id, account, side, lock=True), account)
+
+    def share_projection(connection, row):
+        requester = connection.execute(select(users.c.username).where(users.c.id == row['requester_id'])).scalar_one()
+        owner = connection.execute(select(users.c.username).where(users.c.id == row['owner_id'])).scalar_one()
+        key = connection.execute(select(user_public_keys.c.fingerprint).where(
+            user_public_keys.c.id == row['requester_key_id'])).scalar_one_or_none() if row['requester_key_id'] else None
+        if key is None:
+            active = active_public_key(connection, row['requester_id'])
+            key = active['fingerprint'] if active else None
+        return {'id': row['id'], 'requester_username': requester, 'owner_username': owner,
+                'purpose': row['purpose'], 'requested_items': row['requested_items'].split(','),
+                'status': row['status'], 'application_id': row['application_id'],
+                'requester_key_fingerprint': key[:16] if key else None,
+                'created_at': row['created_at'], 'decided_at': row['decided_at'], 'expires_at': row['expires_at']}
+
+    @app.get(PREFIX + '/keys/me')
+    def get_my_key(account=Depends(user)):
+        role(account, 'applicant')
+        with engine.connect() as connection:
+            key = active_public_key(connection, account['id'])
+            return {'key': ({'public_key_pem': key['public_key_pem'], 'fingerprint': key['fingerprint'][:16],
+                             'created_at': key['created_at']} if key else None)}
+
+    @app.put(PREFIX + '/keys/me')
+    def put_my_key(body: PublicKeyRegistration, account=Depends(user)):
+        role(account, 'applicant')
+        try:
+            pem, fingerprint = public_key_details(body.public_key_pem)
+        except (ValueError, IndexError, TypeError):
+            raise ApiFailure(422, 'INVALID_PUBLIC_KEY', 'Gunakan public key RSA SPKI minimal 2048 bit.')
+        with engine.begin() as connection:
+            connection.execute(select(users.c.id).where(users.c.id == account['id']).with_for_update()).first()
+            connection.execute(update(user_public_keys).where(
+                user_public_keys.c.user_id == account['id'], user_public_keys.c.revoked_at.is_(None)).values(revoked_at=now()))
+            connection.execute(insert(user_public_keys).values(id=uid(), user_id=account['id'],
+                public_key_pem=pem, fingerprint=fingerprint, created_at=now()))
+        return {'public_key_pem': pem, 'fingerprint': fingerprint[:16]}
+
+    @app.post(PREFIX + '/share-requests', status_code=201)
+    def create_share_request(body: ShareRequestCreate, account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('share_request', account['id'], 10, 3600)
+        if len(set(body.items)) != len(body.items):
+            raise ApiFailure(422, 'INVALID_ITEMS', 'Jenis dokumen tidak boleh berulang.')
+        with engine.begin() as connection:
+            if active_public_key(connection, account['id']) is None:
+                raise ApiFailure(422, 'PUBLIC_KEY_REQUIRED', 'Buat kunci publik terlebih dahulu.')
+            owner = connection.execute(select(users).where(users.c.username == body.owner_username,
+                users.c.role == 'applicant', users.c.is_active.is_(True))).mappings().first()
+            if owner is None or owner['id'] == account['id']:
+                raise ApiFailure(422, 'INVALID_OWNER', 'Pilih pemohon lain yang aktif.')
+            row = dict(id=uid(), requester_id=account['id'], owner_id=owner['id'], purpose=body.purpose,
+                requested_items=','.join(body.items), status='PENDING', created_at=now())
+            connection.execute(insert(share_requests).values(**row))
+            share_event(connection, 'SHARE_REQUESTED', account, row['id'])
+            return share_projection(connection, {**row, 'application_id': None,
+                'requester_key_id': None, 'decided_at': None, 'expires_at': None})
+
+    @app.get(PREFIX + '/share-requests')
+    def list_share_requests(box: str = Query(..., pattern='^(incoming|outgoing)$'), account=Depends(user)):
+        role(account, 'applicant')
+        side = share_requests.c.owner_id if box == 'incoming' else share_requests.c.requester_id
+        with engine.begin() as connection:
+            rows = connection.execute(select(share_requests).where(side == account['id']).order_by(
+                share_requests.c.created_at.desc())).mappings().all()
+            return {'items': [share_projection(connection, expire_share(connection, dict(row), account)) for row in rows]}
+
+    @app.post(PREFIX + '/share-requests/{request_id}/reject')
+    def reject_share(request_id: str, account=Depends(user)):
+        with engine.begin() as connection:
+            row = share_record(connection, request_id, account, 'owner', lock=True)
+            if row['status'] != 'PENDING':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Permintaan tidak lagi menunggu keputusan.')
+            connection.execute(update(share_requests).where(share_requests.c.id == request_id).values(
+                status='REJECTED', decided_at=now()))
+            share_event(connection, 'SHARE_REJECTED', account, request_id)
+            return {'status': 'REJECTED'}
+
+    @app.post(PREFIX + '/share-requests/{request_id}/cancel')
+    def cancel_share(request_id: str, account=Depends(user)):
+        with engine.begin() as connection:
+            row = share_record(connection, request_id, account, 'requester', lock=True)
+            if row['status'] != 'PENDING':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Permintaan tidak dapat dibatalkan.')
+            connection.execute(update(share_requests).where(share_requests.c.id == request_id).values(
+                status='CANCELLED', decided_at=now()))
+            share_event(connection, 'SHARE_CANCELLED', account, request_id)
+            return {'status': 'CANCELLED'}
+
+    @app.post(PREFIX + '/share-requests/{request_id}/approve')
+    def approve_share(request_id: str, body: ShareApprove, account=Depends(user)):
+        if len(set(body.items)) != len(body.items):
+            raise ApiFailure(422, 'INVALID_ITEMS', 'Jenis dokumen tidak boleh berulang.')
+        with engine.begin() as connection:
+            row = share_record(connection, request_id, account, 'owner', lock=True)
+            if row['status'] != 'PENDING':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Permintaan tidak lagi menunggu keputusan.')
+            if not set(body.items) <= set(row['requested_items'].split(',')):
+                raise ApiFailure(422, 'INVALID_ITEMS', 'Hanya dokumen yang diminta dapat dibagikan.')
+            application = case(connection, body.application_id, account, owner=True)
+            if application['status'] in ('DRAFT', 'WITHDRAWN'):
+                raise ApiFailure(409, 'CASE_NOT_SHAREABLE', 'Pengajuan belum dapat dibagikan.')
+            public = active_public_key(connection, row['requester_id'])
+            if public is None:
+                raise ApiFailure(409, 'PUBLIC_KEY_REQUIRED', 'Peminta perlu membuat kunci publik baru.')
+            current = current_evidence(connection, application['id'])
+            payloads = []
+            for kind in body.items:
+                if kind == 'profile':
+                    profile_entry = latest_profile(connection, application)
+                    if profile_entry is None:
+                        raise ApiFailure(422, 'ITEM_UNAVAILABLE', 'Profil tidak tersedia.')
+                    data = canonical(review_profile_data(connection, application, profile_entry))
+                    mime = 'application/json'
+                else:
+                    subtype = {'identity': 'ktp', 'document': 'account_opening_form',
+                               'video': 'verification_video', 'kk': 'kk_optional'}[kind]
+                    entry = current.get(subtype)
+                    if entry is None:
+                        raise ApiFailure(422, 'ITEM_UNAVAILABLE', 'Dokumen yang dipilih tidak tersedia.')
+                    data, mime = open_evidence(connection, application, entry), entry['mime_type']
+                payloads.append((kind, mime, data))
+            share_key = secrets.token_bytes(32)
+            wrapped, nonce, tag = wrap_key(settings.kek, row['id'], row['owner_id'], row['requester_id'], share_key)
+            for kind, mime, data in payloads:
+                item_id = uid()
+                item_nonce, ciphertext = encrypt_item(row, item_id, kind, share_key, data)
+                connection.execute(insert(share_items).values(id=item_id, request_id=row['id'], kind=kind,
+                    mime_type=mime, display_name=kind, original_bytes=len(data), nonce=item_nonce, ciphertext=ciphertext))
+            expiry = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            connection.execute(update(share_requests).where(share_requests.c.id == row['id']).values(
+                status='APPROVED', application_id=application['id'], requester_key_id=public['id'],
+                wrapped_share_key=wrapped, wrap_nonce=nonce, wrap_tag=tag, decided_at=now(), expires_at=expiry))
+            share_event(connection, 'SHARE_APPROVED', account, row['id'])
+            return {'status': 'APPROVED', 'expires_at': expiry,
+                    'package': package_key(row['id'], share_key, public['public_key_pem'], public['fingerprint'])}
+
+    @app.post(PREFIX + '/share-requests/{request_id}/revoke')
+    def revoke_share(request_id: str, account=Depends(user)):
+        refresh_share_expiry(request_id, account, 'owner')
+        with engine.begin() as connection:
+            row = expire_share(connection, share_record(connection, request_id, account, 'owner', lock=True), account)
+            if row['status'] != 'APPROVED':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Akses tidak aktif.')
+            connection.execute(delete(share_items).where(share_items.c.request_id == request_id))
+            connection.execute(update(share_requests).where(share_requests.c.id == request_id).values(
+                status='REVOKED', wrapped_share_key=None, wrap_nonce=None, wrap_tag=None))
+            share_event(connection, 'SHARE_REVOKED', account, request_id)
+            return {'status': 'REVOKED'}
+
+    @app.get(PREFIX + '/share-requests/{request_id}/package')
+    def get_share_package(request_id: str, account=Depends(user)):
+        refresh_share_expiry(request_id, account, 'owner')
+        with engine.begin() as connection:
+            row = expire_share(connection, share_record(connection, request_id, account, 'owner', lock=True), account)
+            if row['status'] != 'APPROVED':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Akses tidak aktif.')
+            public = active_public_key(connection, row['requester_id'])
+            if public is None:
+                raise ApiFailure(409, 'PUBLIC_KEY_REQUIRED', 'Peminta perlu membuat kunci publik baru.')
+            try:
+                share_key = unwrap_key(settings.kek, row)
+            except (ValueError, KeyError):
+                raise IntegrityFailure()
+            if row['requester_key_id'] != public['id']:
+                connection.execute(update(share_requests).where(share_requests.c.id == request_id).values(requester_key_id=public['id']))
+            return {'package': package_key(request_id, share_key, public['public_key_pem'], public['fingerprint']),
+                    'key_fp': public['fingerprint'][:16]}
+
+    @app.get(PREFIX + '/share-requests/{request_id}/items')
+    def list_share_items(request_id: str, account=Depends(user)):
+        refresh_share_expiry(request_id, account, 'requester')
+        with engine.begin() as connection:
+            row = expire_share(connection, share_record(connection, request_id, account, 'requester', lock=True), account)
+            if row['status'] != 'APPROVED':
+                raise ApiFailure(409, 'INVALID_TRANSITION', 'Akses tidak aktif.')
+            items = connection.execute(select(share_items.c.id, share_items.c.kind, share_items.c.mime_type,
+                share_items.c.display_name, share_items.c.original_bytes).where(
+                share_items.c.request_id == request_id)).mappings().all()
+            return {'items': [dict(item) for item in items], 'expires_at': row['expires_at']}
+
+    @app.post(PREFIX + '/share-requests/{request_id}/items/{item_id}/open')
+    def open_share_item(request_id: str, item_id: str, body: ShareOpen, account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('share_open', account['id'], 20, 60)
+        try:
+            refresh_share_expiry(request_id, account, 'requester')
+            with engine.begin() as connection:
+                row = expire_share(connection, share_record(connection, request_id, account, 'requester', lock=True), account)
+                if row['status'] != 'APPROVED':
+                    raise ValueError('Unavailable')
+                item = connection.execute(select(share_items).where(share_items.c.id == item_id,
+                    share_items.c.request_id == request_id)).mappings().first()
+                if item is None:
+                    raise ValueError('Unavailable')
+                key = base64.b64decode(body.share_key, validate=True)
+                data = decrypt_item(row, item, key)
+                if len(data) != item['original_bytes']:
+                    raise ValueError('Corrupt copy')
+                share_event(connection, 'SHARE_OPENED', account, request_id)
+                return Response(data, media_type=item['mime_type'], headers={'Content-Disposition': 'inline',
+                    'Content-Security-Policy': "sandbox; default-src 'none'"})
+        except (ApiFailure, ValueError, KeyError, TypeError, binascii.Error):
+            audit('SHARE_OPEN_FAILED', account['id'], request_id, outcome='failed')
+            raise ApiFailure(403, 'SHARE_OPEN_DENIED', 'Kunci tidak valid atau akses tidak tersedia.')
 
     @app.get(PREFIX + '/admin/assignments')
     def list_assignments(account=Depends(user)):

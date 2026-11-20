@@ -122,3 +122,36 @@ document_analyses = Table('document_analyses', metadata,
     Column('status', String(16), nullable=False),
     Column('object_id', String(36), ForeignKey('encrypted_objects.id', ondelete='CASCADE'), unique=True, nullable=False),
     Column('processed_at', String(40), nullable=False))
+
+# Assignment 2: public keys and encrypted, revocable per-request copies.
+user_public_keys = Table('user_public_keys', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('user_id', String(36), ForeignKey('kyc_users.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('public_key_pem', Text, nullable=False), Column('fingerprint', String(64), nullable=False),
+    Column('created_at', String(40), nullable=False), Column('revoked_at', String(40)))
+Index('uq_user_public_keys_active', user_public_keys.c.user_id, unique=True,
+      sqlite_where=user_public_keys.c.revoked_at.is_(None))
+
+share_requests = Table('share_requests', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('requester_id', String(36), ForeignKey('kyc_users.id'), nullable=False, index=True),
+    Column('owner_id', String(36), ForeignKey('kyc_users.id'), nullable=False, index=True),
+    Column('purpose', String(200), nullable=False), Column('requested_items', String(100), nullable=False),
+    Column('status', String(16), nullable=False),
+    Column('application_id', String(36), ForeignKey('applications.id', ondelete='CASCADE')),
+    Column('requester_key_id', String(36), ForeignKey('user_public_keys.id')),
+    Column('wrapped_share_key', blob), Column('wrap_nonce', LargeBinary(12)),
+    Column('wrap_tag', LargeBinary(16)),
+    Column('created_at', String(40), nullable=False), Column('decided_at', String(40)),
+    Column('expires_at', String(40)),
+    CheckConstraint('requester_id <> owner_id', name='different_share_parties'),
+    CheckConstraint("status IN ('PENDING','APPROVED','REJECTED','CANCELLED','REVOKED','EXPIRED')", name='valid_share_status'))
+
+share_items = Table('share_items', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('request_id', String(36), ForeignKey('share_requests.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('kind', String(16), nullable=False), Column('mime_type', String(100), nullable=False),
+    Column('display_name', String(100), nullable=False), Column('original_bytes', Integer, nullable=False),
+    Column('nonce', LargeBinary(12), nullable=False), Column('ciphertext', blob, nullable=False),
+    CheckConstraint("kind IN ('profile','identity','document','video','kk')", name='valid_share_item_kind'),
+    UniqueConstraint('request_id', 'kind', name='unique_share_item_kind'))

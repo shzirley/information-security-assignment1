@@ -787,6 +787,416 @@
         }
       }
     },
+    "/api/v1/keys/me": {
+      "get": {
+        "summary": "Get My Key",
+        "operationId": "get_my_key_api_v1_keys_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put My Key",
+        "operationId": "put_my_key_api_v1_keys_me_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicKeyRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests": {
+      "post": {
+        "summary": "Create Share Request",
+        "operationId": "create_share_request_api_v1_share_requests_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareRequestCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Share Requests",
+        "operationId": "list_share_requests_api_v1_share_requests_get",
+        "parameters": [
+          {
+            "name": "box",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(incoming|outgoing)$",
+              "title": "Box"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/reject": {
+      "post": {
+        "summary": "Reject Share",
+        "operationId": "reject_share_api_v1_share_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/cancel": {
+      "post": {
+        "summary": "Cancel Share",
+        "operationId": "cancel_share_api_v1_share_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/approve": {
+      "post": {
+        "summary": "Approve Share",
+        "operationId": "approve_share_api_v1_share_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareApprove"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/revoke": {
+      "post": {
+        "summary": "Revoke Share",
+        "operationId": "revoke_share_api_v1_share_requests__request_id__revoke_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/package": {
+      "get": {
+        "summary": "Get Share Package",
+        "operationId": "get_share_package_api_v1_share_requests__request_id__package_get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/items": {
+      "get": {
+        "summary": "List Share Items",
+        "operationId": "list_share_items_api_v1_share_requests__request_id__items_get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{request_id}/items/{item_id}/open": {
+      "post": {
+        "summary": "Open Share Item",
+        "operationId": "open_share_item_api_v1_share_requests__request_id__items__item_id__open_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/assignments": {
       "get": {
         "summary": "List Assignments",
@@ -1265,6 +1675,22 @@
         ],
         "title": "Profile"
       },
+      "PublicKeyRegistration": {
+        "properties": {
+          "public_key_pem": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 200,
+            "title": "Public Key Pem"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "public_key_pem"
+        ],
+        "title": "PublicKeyRegistration"
+      },
       "Registration": {
         "properties": {
           "username": {
@@ -1330,6 +1756,88 @@
           "profile"
         ],
         "title": "SaveProfile"
+      },
+      "ShareApprove": {
+        "properties": {
+          "application_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Application Id"
+          },
+          "items": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "profile",
+                "identity",
+                "document",
+                "video",
+                "kk"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "application_id",
+          "items"
+        ],
+        "title": "ShareApprove"
+      },
+      "ShareOpen": {
+        "properties": {
+          "share_key": {
+            "title": "Share Key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ShareOpen"
+      },
+      "ShareRequestCreate": {
+        "properties": {
+          "owner_username": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_]{3,24}$",
+            "title": "Owner Username"
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 10,
+            "title": "Purpose"
+          },
+          "items": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "profile",
+                "identity",
+                "document",
+                "video",
+                "kk"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "owner_username",
+          "purpose",
+          "items"
+        ],
+        "title": "ShareRequestCreate"
       },
       "ValidationError": {
         "properties": {
