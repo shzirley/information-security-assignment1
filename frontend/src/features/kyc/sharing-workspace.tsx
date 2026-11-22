@@ -21,12 +21,7 @@ import {
 import { api, saveBlob } from '@/lib/api';
 import { kycApi } from '@/lib/kyc-api';
 import type { ShareItem, ShareRequest } from '@/lib/kyc';
-import {
-  decryptSharePackage,
-  generateRsaKeyPair,
-  loadLocalPrivateKey,
-  saveLocalPrivateKey,
-} from '@/lib/sharing-crypto';
+import { decryptSharePackage, generateRsaKeyPair } from '@/lib/sharing-crypto';
 import { Button, EmptyState, ErrorState, LoadingState, Modal, PageHeading } from '@/components/ui';
 
 const SHAREABLE_ITEMS: Array<{ id: ShareItem['kind']; label: string; desc: string }> = [
@@ -71,8 +66,6 @@ export function SharingWorkspace() {
   const username = session.data?.username ?? '';
 
   const [tab, setTab] = useState<TabKey>('incoming');
-  const [localPrivateKey, setLocalPrivateKey] = useState<string>('');
-  const [localFingerprint, setLocalFingerprint] = useState<string | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
   const [keyNotice, setKeyNotice] = useState<string | null>(null);
@@ -102,15 +95,6 @@ export function SharingWorkspace() {
   const [openingItemId, setOpeningItemId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
-  useEffect(() => {
-    if (!username) return;
-    const saved = loadLocalPrivateKey(username);
-    if (saved) {
-      setLocalPrivateKey(saved.privateKeyPem);
-      setLocalFingerprint(saved.fingerprint);
-    }
-  }, [username]);
-
   // Cleanup blob URL when preview closes or changes
   useEffect(() => {
     const url = preview?.blobUrl;
@@ -125,7 +109,7 @@ export function SharingWorkspace() {
   const appsQuery = useQuery({ queryKey: ['applications'], queryFn: kycApi.applications });
 
   const shareableApps = useMemo(
-    () => (appsQuery.data?.items ?? []).filter(a => a.status !== 'DRAFT' && a.status !== 'WITHDRAWN'),
+    () => (appsQuery.data?.items ?? []).filter(a => a.status !== 'WITHDRAWN'),
     [appsQuery.data],
   );
 
@@ -141,11 +125,10 @@ export function SharingWorkspace() {
     try {
       const pair = await generateRsaKeyPair();
       const registered = await kycApi.registerPublicKey(pair.publicKeyPem);
-      saveLocalPrivateKey(username, pair.privateKeyPem, registered.fingerprint);
-      setLocalPrivateKey(pair.privateKeyPem);
-      setLocalFingerprint(registered.fingerprint);
+      // The download is the only copy: the key is not kept in memory or browser storage.
+      saveBlob(new Blob([pair.privateKeyPem], { type: 'application/x-pem-file' }), `veltrix-private-key-${username}.pem`);
       setKeyNotice(
-        `Pasangan kunci RSA-2048 berhasil dibuat! Public key terdaftar (fingerprint: ${registered.fingerprint}). Private key disimpan lokal di browser dan tidak pernah dikirim ke server.`,
+        `Pasangan kunci RSA-2048 berhasil dibuat. Public key terdaftar (fingerprint: ${registered.fingerprint}). File private key sudah diunduh: simpan baik-baik, karena tidak disimpan di browser maupun server. Tanpa file ini kamu tidak bisa membuka dokumen yang dibagikan kepadamu.`,
       );
       queryClient.invalidateQueries({ queryKey: ['sharing', 'my-key'] });
     } catch (err) {
@@ -153,12 +136,6 @@ export function SharingWorkspace() {
     } finally {
       setKeyBusy(false);
     }
-  };
-
-  const handleDownloadPrivateKey = () => {
-    if (!localPrivateKey) return;
-    const blob = new Blob([localPrivateKey], { type: 'application/x-pem-file' });
-    saveBlob(blob, `veltrix-private-key-${username || 'user'}.pem`);
   };
 
   const createRequestMutation = useMutation({
@@ -219,7 +196,7 @@ export function SharingWorkspace() {
   const openUnlockModal = (req: ShareRequest) => {
     setUnlockTarget(req);
     setPastePackage('');
-    setUnlockPrivateKey(localPrivateKey);
+    setUnlockPrivateKey('');
     setDecryptedShareKey(null);
     setUnlockError(null);
     setSharedItems([]);
@@ -294,7 +271,6 @@ export function SharingWorkspace() {
   };
 
   const serverKey = myKeyQuery.data?.key ?? null;
-  const keyMatchesLocal = Boolean(serverKey && localPrivateKey && localFingerprint === serverKey.fingerprint);
 
   if (myKeyQuery.isPending || incomingQuery.isPending || outgoingQuery.isPending) {
     return <LoadingState label="Memuat ruang manajemen kunci & berbagi data…" />;
@@ -317,7 +293,7 @@ export function SharingWorkspace() {
               <h2 style={{ margin: 0 }}>Pasangan Kunci Asimetris (RSA-2048)</h2>
             </div>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.92rem' }}>
-              Public key didaftarkan ke server agar pemilik data dapat mengenkripsi kunci simetris untuk Anda. Private key disimpan secara lokal di browser dan tidak pernah dikirim ke server.
+              Public key didaftarkan ke server agar pemilik data dapat mengenkripsi kunci simetris untuk Anda. Private key diunduh sebagai file .pem dan hanya Anda yang menyimpannya; tidak dikirim ke server dan tidak disimpan di browser.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -325,12 +301,6 @@ export function SharingWorkspace() {
               <RefreshCw size={16} aria-hidden="true" />
               {serverKey ? 'Rotasi Kunci RSA Baru' : 'Generate & Daftar Kunci RSA'}
             </Button>
-            {localPrivateKey && (
-              <Button variant="secondary" onClick={handleDownloadPrivateKey}>
-                <Download size={16} aria-hidden="true" />
-                Cadangkan Private Key (.pem)
-              </Button>
-            )}
           </div>
         </div>
 
@@ -357,23 +327,13 @@ export function SharingWorkspace() {
             )}
           </div>
           <div style={{ padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--surface-2, var(--surface))' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Private Key Lokal (Browser)</div>
-            {keyMatchesLocal ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
-                <Lock size={17} style={{ color: '#10b981' }} />
-                Tersimpan & cocok dengan server
-              </div>
-            ) : localPrivateKey ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f59e0b', fontWeight: 500 }}>
-                <ShieldAlert size={17} />
-                Tersimpan lokal (fingerprint berbeda)
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--muted)' }}>
-                <Lock size={17} />
-                Belum ada di browser ini (bisa paste manual saat membuka data)
-              </div>
-            )}
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Private Key</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--muted)' }}>
+              <Lock size={17} />
+              {serverKey
+                ? `Hanya di file veltrix-private-key-${username}.pem milikmu. Pilih file itu saat membuka data.`
+                : 'Akan diunduh sebagai file .pem saat kunci dibuat.'}
+            </div>
           </div>
         </div>
       </section>
@@ -484,7 +444,7 @@ export function SharingWorkspace() {
               })}
               {shareableApps.length === 0 && incomingQuery.data?.items.some(r => r.status === 'PENDING') && (
                 <p style={{ color: '#f59e0b', fontSize: '0.88rem', margin: 0 }}>
-                  Catatan: Anda memerlukan minimal satu pengajuan KYC berstatus Terkirim (bukan Draf) agar dapat menyetujui permintaan berbagi data.
+                  Catatan: Anda memerlukan minimal satu pengajuan KYC (draf atau terkirim, bukan yang ditarik) agar dapat menyetujui permintaan berbagi data.
                 </p>
               )}
             </div>
@@ -785,6 +745,16 @@ export function SharingWorkspace() {
                   <label htmlFor="unlock-privkey-input">
                     Private Key RSA Anda (PKCS#8 PEM — diproses lokal di browser)
                   </label>
+                  <input
+                    type="file"
+                    accept=".pem"
+                    aria-label="Pilih file private key (.pem)"
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (file) setUnlockPrivateKey(await file.text());
+                      e.target.value = '';
+                    }}
+                  />
                   <textarea
                     id="unlock-privkey-input"
                     rows={4}

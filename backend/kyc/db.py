@@ -129,8 +129,10 @@ user_public_keys = Table('user_public_keys', metadata,
     Column('user_id', String(36), ForeignKey('kyc_users.id', ondelete='CASCADE'), nullable=False, index=True),
     Column('public_key_pem', Text, nullable=False), Column('fingerprint', String(64), nullable=False),
     Column('created_at', String(40), nullable=False), Column('revoked_at', String(40)))
+# Partial unique index exists only on SQLite; MySQL would make it unique on user_id and break
+# key rotation. There, put_my_key's user-row lock keeps one active key.
 Index('uq_user_public_keys_active', user_public_keys.c.user_id, unique=True,
-      sqlite_where=user_public_keys.c.revoked_at.is_(None))
+      sqlite_where=user_public_keys.c.revoked_at.is_(None)).ddl_if(dialect='sqlite')
 
 share_requests = Table('share_requests', metadata,
     Column('id', String(36), primary_key=True),

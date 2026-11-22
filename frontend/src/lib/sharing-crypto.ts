@@ -3,12 +3,10 @@
  *
  * - RSA-OAEP-256 (2048-bit) key pair generation in the browser.
  * - SPKI Public Key PEM export (sent to server via PUT /api/v1/keys/me).
- * - PKCS#8 Private Key PEM export (kept strictly local on client, NEVER sent to server).
+ * - PKCS#8 Private Key PEM export, downloaded once as a file the user keeps. It is never sent
+ *   to the server and never stored in browser storage, where an XSS bug could read it.
  * - Unpacking & decrypting VELTRIX-SHARE-1.<base64url> out-of-band key packages.
  */
-
-const PRIVATE_KEY_STORAGE_PREFIX = 'veltrix_rsa_private_key_v1:';
-const FINGERPRINT_STORAGE_PREFIX = 'veltrix_rsa_fingerprint_v1:';
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -92,26 +90,6 @@ export async function generateRsaKeyPair(): Promise<GeneratedKeyPair> {
     privateKeyPem: formatPem(arrayBufferToBase64(pkcs8), 'PRIVATE KEY'),
     fingerprint,
   };
-}
-
-export function saveLocalPrivateKey(username: string, privateKeyPem: string, fingerprint: string) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(PRIVATE_KEY_STORAGE_PREFIX + username, privateKeyPem);
-  localStorage.setItem(FINGERPRINT_STORAGE_PREFIX + username, fingerprint);
-}
-
-export function loadLocalPrivateKey(username: string): { privateKeyPem: string; fingerprint: string | null } | null {
-  if (typeof window === 'undefined') return null;
-  const privateKeyPem = localStorage.getItem(PRIVATE_KEY_STORAGE_PREFIX + username);
-  if (!privateKeyPem) return null;
-  const fingerprint = localStorage.getItem(FINGERPRINT_STORAGE_PREFIX + username);
-  return { privateKeyPem, fingerprint };
-}
-
-export function clearLocalPrivateKey(username: string) {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(PRIVATE_KEY_STORAGE_PREFIX + username);
-  localStorage.removeItem(FINGERPRINT_STORAGE_PREFIX + username);
 }
 
 export interface UnpackedShareKey {

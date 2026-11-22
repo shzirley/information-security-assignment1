@@ -886,8 +886,9 @@ def create_app(settings: Settings):
             if not set(body.items) <= set(row['requested_items'].split(',')):
                 raise ApiFailure(422, 'INVALID_ITEMS', 'Hanya dokumen yang diminta dapat dibagikan.')
             application = case(connection, body.application_id, account, owner=True)
-            if application['status'] in ('DRAFT', 'WITHDRAWN'):
-                raise ApiFailure(409, 'CASE_NOT_SHAREABLE', 'Pengajuan belum dapat dibagikan.')
+            # Drafts are allowed: co-signers check each other's documents before submitting.
+            if application['status'] == 'WITHDRAWN':
+                raise ApiFailure(409, 'CASE_NOT_SHAREABLE', 'Pengajuan yang ditarik tidak dapat dibagikan.')
             public = active_public_key(connection, row['requester_id'])
             if public is None:
                 raise ApiFailure(409, 'PUBLIC_KEY_REQUIRED', 'Peminta perlu membuat kunci publik baru.')

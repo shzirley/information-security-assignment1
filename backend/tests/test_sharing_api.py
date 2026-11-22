@@ -197,3 +197,32 @@ def test_upgrade_from_existing_0002_keeps_user(tmp_path):
         assert user_public_keys.name in connection.dialect.get_table_names(connection)
         assert share_requests.name in connection.dialect.get_table_names(connection)
     engine.dispose()
+
+
+def test_draft_case_can_be_shared(system):
+    # Scenario: co-signers check each other's documents before the case is submitted.
+    _, _, client, _ = system
+    login(client, 'owner')
+    row = create(client)
+    assert profile(client, row).status_code == 200
+    login(client, 'other')
+    keypair(client)
+    request_id = mutate(client, 'POST', '/share-requests', json={
+        'owner_username': 'owner', 'purpose': 'Pengajuan rekening HIMA Informatika', 'items': ['profile']}).json()['id']
+    login(client, 'owner')
+    approved = mutate(client, 'POST', f'/share-requests/{request_id}/approve',
+                      json={'application_id': row['id'], 'items': ['profile']})
+    assert approved.status_code == 200, approved.text
+
+
+def test_active_key_index_is_sqlite_only():
+    # MySQL has no partial index; a plain unique index on user_id would break key rotation.
+    from sqlalchemy import create_mock_engine
+    from sqlalchemy.schema import CreateIndex
+    from kyc.db import metadata
+    for dialect, expected in (('sqlite://', True), ('mysql+pymysql://', False)):
+        statements = []
+        engine = create_mock_engine(dialect, lambda sql, *a, **k: statements.append(sql))
+        metadata.create_all(engine, tables=[user_public_keys], checkfirst=False)
+        created = [s.element.name for s in statements if isinstance(s, CreateIndex)]
+        assert ('uq_user_public_keys_active' in created) is expected, (dialect, created)
