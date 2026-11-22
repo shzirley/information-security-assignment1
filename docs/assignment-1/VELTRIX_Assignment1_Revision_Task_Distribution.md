@@ -32,7 +32,7 @@ Berdasarkan README dan PRD di branch `main` pada waktu rencana ini dibuat:
 | DEC-01 | Skenario: pemohon membuka **rekening baru** secara online pada bank simulasi, bukan sekadar aktivasi m-banking | **Locked** |
 | DEC-02 | Dokumen utama: personal profile (JSON), KTP dummy, formulir pembukaan rekening (PDF/DOCX), video verifikasi sintetis (MP4) | **Locked** |
 | DEC-03 | KK dummy adalah **dokumen tambahan opsional**, bukan syarat universal bagi semua pemohon dewasa | **Locked** |
-| DEC-04 | Reviewer yang ditugaskan mendapat **delegated, read-only preview** untuk dokumen dan field profil yang relevan; **bukan** akses download seperti applicant | **Proposed — confirm with asdos** |
+| DEC-04 | Reviewer yang ditugaskan mendapat **delegated, read-only preview** untuk dokumen dan field profil yang relevan; **bukan** akses download seperti applicant | **Approved — disetujui asdos** |
 | DEC-05 | OCR baseline **lokal** menggunakan PaddleOCR untuk scan/gambar; PDF digital memakai text extraction; DOCX memakai parser | **Locked for implementation planning** |
 | DEC-06 | Hasil OCR membantu pemeriksaan; **tidak** otomatis mengesahkan keaslian KTP, KK, atau wajah di video | **Locked** |
 | DEC-07 | SQLite dipertahankan untuk local MVP; tambah tabel/kolom memakai **migration baru**, bukan menghapus DB atau mengubah migrasi yang sudah dipakai | **Locked** |
