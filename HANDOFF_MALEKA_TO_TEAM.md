@@ -3,9 +3,9 @@
 
 > **Penulis:** Maleka Ghaniya (Cryptography & Backend Security Lead)  
 > **Penerima:** Caca / Jahhaza (Backend Lead), Angela (Frontend Lead), Jorell (OCR & QA Lead), Dosen & Asisten Pengajar  
-> **Tanggal Selesai:** 16 November 2026  
-> **Status:** **100% Selesai & Terverifikasi (Unit Tests & Smoke Tests Passed)**  
-> **Prinsip Kepatuhan:** *Confidentiality & Integrity at Rest* (Pasal 35 UU No. 27/2022 UU PDP).
+> **Tanggal Selesai:** 16 November 2026 (Assignment 1) · Diperbarui 22 November 2026 (Assignment 2)  
+> **Status:** **100% Selesai & Terverifikasi (Assignment 1 + Assignment 2 Passed)**  
+> **Prinsip Kepatuhan:** *Confidentiality & Integrity at Rest & Out-of-Band Key Distribution* (Pasal 35 UU No. 27/2022 UU PDP).
 
 ---
 
@@ -25,6 +25,10 @@ Seluruh pekerjaan `M-SEC-01` hingga `M-SEC-04` telah selesai diimplementasikan, 
 | **M-SEC-06** | In-Memory Document Preview & Profil Inspeksi Reviewer | **Selesai (P0)** | Pratinjau visual KTP/PDF & profil pemohon via memory blob URL tanpa pernah tersimpan ke disk. |
 | **M-SEC-07** | Pipeline Analisis Dokumen & Verifikasi Otomatis Berlapis | **Selesai (P0/P1)** | Validasi magic bytes, deteksi keyword resmi KTP (PaddleOCR), komparasi NIK/Nama dengan form pendaftaran. |
 | **M-SEC-08** | Panduan Foto KTP Presisi (*KTP Cropper Modal*) | **Selesai (P1)** | Bingkai panduan standar ID-1, penanganan auto-fit foto kamera resolusi tinggi, drag/zoom/rotate interaktif. |
+| **M-A2-01** | Assignment 2: Client-Side RSA-OAEP-256 Web Crypto | **Selesai (P0)** | Pembangkitan RSA-2048 lokal di browser, ekspor SPKI/PKCS#8 PEM, dekripsi paket `VELTRIX-SHARE-1.` tanpa mengirim Private Key ke server. |
+| **M-A2-02** | Assignment 2: Frontend Data Sharing UI & In-Memory Preview | **Selesai (P0)** | Menu `03 Berbagi data` (`/applicant/sharing`): Request, Approve + Modal WA/Email, Unlock paket & pratinjau in-memory. |
+| **M-A2-03** | Assignment 2: Security Regression & Out-of-Band Demo | **Selesai (P0)** | 9/9 pytest lulus (Eve eavesdrop, bit-flip tampering, at-rest KEK audit, AAD substitution, key rotation) + CLI simulator 6 tahap. |
+| **M-A2-04** | Assignment 2: Laporan Keamanan & Threat Model | **Selesai (P1)** | Dokumen `docs/verification/ASSIGNMENT_2_SECURITY_REPORT.md` mencakup arsitektur hibrida dan bukti uji aktual. |
 
 ---
 
@@ -180,3 +184,60 @@ cd praktikum_1\backend
 * **Untuk Angela (Frontend):** Pratinjau gambar, PDF, dan video dapat diakses melalui endpoint `GET /api/v1/applications/{id}/evidence/{eid}/review-preview` menggunakan kredensial reviewer yang ditugaskan.
 * **Untuk Caca / Jahhaza (Backend):** Layanan dekripsi aman terintegrasi penuh dalam rute review dan worker analisis dokumen tanpa perlu membuka kunci master KEK ke komponen publik.
 * **Untuk Jorell (QA & Dokumen):** Seluruh angka pengujian keamanan, skenario penolakan tampering, dan pembuktian matematis siap dirujuk ke dalam laporan akhir revisi tugas.
+
+---
+
+## 5. Assignment 2: Key Management & Out-of-Band Data Sharing
+
+Melanjutkan Backend API Assignment 2 yang telah dibangun oleh Jahhaza (`backend/kyc/sharing_crypto.py`, `backend/kyc/main.py`, migrasi `0003_data_sharing`), Maleka menyelesaikan implementasi **kriptografi sisi klien, antarmuka pengguna (UI), pengujian regresi keamanan *out-of-band*, simulator demo CLI, dan dokumentasi laporan keamanan**.
+
+### A. M-A2-01: Client-Side Web Crypto Engine (`frontend/src/lib/sharing-crypto.ts`)
+
+* **Pembangkitan Kunci RSA-2048 di Browser:** Menggunakan Web Crypto API (`RSA-OAEP` + `SHA-256`) untuk membuat pasangan kunci asimetris secara lokal.
+* **Isolasi Private Key:** Hanya *Public Key* (format SPKI PEM) yang dikirim ke server (`PUT /api/v1/keys/me`). *Private Key* (format PKCS#8 PEM) disimpan secara lokal di browser dan tersedia opsi unduh cadangan `.pem` (**tidak pernah dikirim ke server**).
+* **Dekripsi Paket `VELTRIX-SHARE-1.`:** Membongkar paket teks yang diterima dari WhatsApp/Email dan mendekripsi `ek` menggunakan *Private Key* lokal untuk mengekstrak kunci simetris AES-256 (32 byte).
+
+### B. M-A2-02: Frontend Data Sharing UI & Pratinjau In-Memory (`/applicant/sharing`)
+
+* **File Terkait:**
+  * `frontend/src/lib/kyc-api.ts` — integrasi seluruh endpoint Assignment 2 (`/keys/me`, `/share-requests`, `/approve`, `/reject`, `/cancel`, `/revoke`, `/package`, `/items`, `/open`).
+  * `frontend/src/features/kyc/sharing-workspace.tsx` & `frontend/src/app/(workspace)/applicant/sharing/page.tsx` — ruang kerja lengkap berbagi data.
+  * `frontend/src/components/app-shell.tsx` — navigasi sidebar **`03 Berbagi data`** untuk peran Pemohon (`applicant`).
+* **Alur Fitur di Browser:**
+  1. **Panel Manajemen Kunci RSA-2048:** Generate/rotasi kunci, status fingerprint server vs lokal, dan cadangan Private Key `.pem`.
+  2. **Tab Ajukan Permintaan Akses:** Memilih username pemilik data, tujuan, dan item (`profile`, `identity`, `document`, `kk`, `video`).
+  3. **Tab Permintaan Masuk (Pemilik Data):** Menyetujui permintaan (memilih pengajuan & subset item) → muncul pop-up **Paket Kunci Terenkripsi (`VELTRIX-SHARE-1...`)** dengan tombol salin ke clipboard serta pintasan **Kirim via WhatsApp** dan **Kirim via Email**, plus tombol **Cabut Akses (Revoke)**.
+  4. **Tab Permintaan Keluar & Unlock (Pemohon):** Menempel paket dari WhatsApp/Email + Private Key → dekripsi lokal → pratinjau dokumen **in-memory** (Profil JSON, gambar KTP, PDF, video via temporary Blob URL yang langsung di-revoke saat dialog ditutup).
+
+### C. M-A2-03: Security Regression Tests & Demo Simulator
+
+* **Security Regression Suite (`backend/tests/test_assignment2_security.py`):**
+  * `test_oob_eavesdropper_cannot_decrypt_package`: Penyadap (*Eve*) yang menyalin paket dari WA/Email gagal mendekripsi tanpa Private Key pemohon.
+  * `test_oob_package_tampering_rejected_by_rsa_oaep`: Modifikasi 1 bit pada ciphertext kunci (`ek`) langsung ditolak RSA-OAEP-256.
+  * `test_at_rest_key_wrapping_and_zero_plaintext_audit`: Audit database SQLite membuktikan `wrapped_share_key != raw_key` dan nol plaintext PII di `share_items`.
+  * `test_cross_item_aad_substitution_attack_rejected`: Penukaran ciphertext antar-item ditolak AES-256-GCM AAD (`403 SHARE_OPEN_DENIED`).
+  * `test_key_rotation_invalidates_old_private_key_on_reissued_package`: Setelah rotasi kunci RSA, Private Key lama tidak dapat membuka paket yang diterbitkan ulang.
+* **CLI Demo Simulator (`backend/scripts/demo_assignment2_sharing.py`):** Simulasi interaktif 6 tahap (Registrasi & RSA Keypair → Request → Approve & Paket `VELTRIX-SHARE-1` → Uji Serangan Penyadapan & Tampering → Dekripsi & Verifikasi SHA-256 100% Identik → Revoke & Data Shredding).
+
+### D. M-A2-04: Laporan Keamanan Assignment 2
+
+* Dokumentasi arsitektur enkripsi hibrida, *threat model* distribusi kunci *out-of-band*, dan tabel hasil pengujian aktual tersedia di [`docs/verification/ASSIGNMENT_2_SECURITY_REPORT.md`](docs/verification/ASSIGNMENT_2_SECURITY_REPORT.md).
+
+### E. Perintah Verifikasi Assignment 2 (Windows)
+
+```powershell
+# 1. Migrasi skema Assignment 2 (0003_data_sharing)
+cd backend
+.\.venv\Scripts\python.exe manage.py migrate
+
+# 2. Jalankan seluruh tes API + regresi keamanan Assignment 2 (9 passed)
+.\.venv\Scripts\python.exe -m pytest -v --basetemp=temp_pytest tests/test_sharing_api.py tests/test_assignment2_security.py
+
+# 3. Jalankan simulator demo end-to-end 6 tahap
+$env:PYTHONIOENCODING="utf-8"
+.\.venv\Scripts\python.exe scripts/demo_assignment2_sharing.py
+
+# 4. Verifikasi TypeScript frontend (0 errors)
+cd ..\frontend
+npm.cmd run typecheck
+```

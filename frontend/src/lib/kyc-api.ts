@@ -1,5 +1,5 @@
 import { call } from './api';
-import type { ApplicantProfile, Application, AssignmentList, CaseAction, CaseList, EvidenceCategory, LabRun, ProfileResponse, DocumentType, EvidenceCheck, ReviewChecksResponse, ReviewerProfile, DocumentAnalysis } from './kyc';
+import type { ApplicantProfile, Application, AssignmentList, CaseAction, CaseList, EvidenceCategory, LabRun, ProfileResponse, DocumentType, EvidenceCheck, ReviewChecksResponse, ReviewerProfile, DocumentAnalysis, PublicKeyInfo, ShareItem, ShareRequest } from './kyc';
 
 const json = (value: unknown) => JSON.stringify(value);
 const path = (id: string) => `/applications/${encodeURIComponent(id)}`;
@@ -37,4 +37,32 @@ export const kycApi = {
   labRuns: () => call<LabRun[]>('/lab/runs'),
   runLab: (kind: LabRun['kind'], fixture: string, repetitions: number) => call<LabRun>('/lab/runs', { method: 'POST', body: json({ kind, fixture, repetitions, warmups: 2 }) }),
   exportLab: (id: string) => call<Blob>(`/lab/runs/${encodeURIComponent(id)}/export`),
+  // Assignment 2: Key Management & Out-of-Band Data Sharing
+  myPublicKey: () => call<{ key: PublicKeyInfo | null }>('/keys/me'),
+  registerPublicKey: (public_key_pem: string) =>
+    call<{ public_key_pem: string; fingerprint: string }>('/keys/me', { method: 'PUT', body: json({ public_key_pem }) }),
+  shareRequests: (box: 'incoming' | 'outgoing') =>
+    call<{ items: ShareRequest[] }>(`/share-requests?box=${box}`),
+  createShareRequest: (owner_username: string, purpose: string, items: string[]) =>
+    call<ShareRequest>('/share-requests', { method: 'POST', body: json({ owner_username, purpose, items }) }),
+  approveShareRequest: (id: string, application_id: string, items: string[]) =>
+    call<{ status: string; expires_at: string; package: string }>(`/share-requests/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: json({ application_id, items }),
+    }),
+  rejectShareRequest: (id: string) =>
+    call<{ status: string }>(`/share-requests/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
+  cancelShareRequest: (id: string) =>
+    call<{ status: string }>(`/share-requests/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
+  revokeShareRequest: (id: string) =>
+    call<{ status: string }>(`/share-requests/${encodeURIComponent(id)}/revoke`, { method: 'POST' }),
+  sharePackage: (id: string) =>
+    call<{ package: string; key_fp: string }>(`/share-requests/${encodeURIComponent(id)}/package`),
+  shareItems: (id: string) =>
+    call<{ items: ShareItem[]; expires_at: string }>(`/share-requests/${encodeURIComponent(id)}/items`),
+  openShareItem: (requestId: string, itemId: string, share_key: string) =>
+    call<Blob | Record<string, unknown>>(`/share-requests/${encodeURIComponent(requestId)}/items/${encodeURIComponent(itemId)}/open`, {
+      method: 'POST',
+      body: json({ share_key }),
+    }),
 };
