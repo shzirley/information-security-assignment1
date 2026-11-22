@@ -92,3 +92,32 @@ export interface DocumentAnalysis {
   error?: string;
   checks: Array<{ field: string; submitted_value: string | null; extracted_value: string | null; result: string }>;
 }
+
+export interface ShareRequest {
+  id: string;
+  requester_username: string;
+  owner_username: string;
+  purpose: string;
+  requested_items: string[];
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'REVOKED' | 'EXPIRED';
+  application_id: string | null;
+  requester_key_fingerprint: string | null;
+  created_at: string;
+  decided_at: string | null;
+  expires_at: string | null;
+}
+
+export interface ShareItem {
+  id: string;
+  kind: 'profile' | 'identity' | 'document' | 'video' | 'kk';
+  mime_type: string;
+  display_name: string;
+  original_bytes: number;
+}
+
+export interface PublicKeyInfo {
+  public_key_pem: string;
+  fingerprint: string;
+  created_at: string;
+}
+

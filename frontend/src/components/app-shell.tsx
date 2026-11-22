@@ -4,14 +4,18 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ChartNoAxesCombined, ClipboardCheck, FlaskConical, LayoutDashboard, ListChecks, LogOut, Menu, Moon, Sun, UsersRound, X } from 'lucide-react';
+import { ChartNoAxesCombined, ClipboardCheck, FlaskConical, KeyRound, LayoutDashboard, ListChecks, LogOut, Menu, Moon, Sun, UsersRound, X } from 'lucide-react';
 import { api, clearApiSession } from '@/lib/api';
 import { roleHome, roleLabels } from '@/lib/kyc';
 import { ErrorState, LoadingState } from './ui';
 import { BrandLogo } from './brand-logo';
 
 const navigationByRole = {
-  applicant: [{ href: '/applicant/dashboard', label: 'Ringkasan', icon: LayoutDashboard, index: '01' }, { href: '/applicant/applications', label: 'Pengajuan saya', icon: ListChecks, index: '02' }],
+  applicant: [
+    { href: '/applicant/dashboard', label: 'Ringkasan', icon: LayoutDashboard, index: '01' },
+    { href: '/applicant/applications', label: 'Pengajuan saya', icon: ListChecks, index: '02' },
+    { href: '/applicant/sharing', label: 'Berbagi data', icon: KeyRound, index: '03' },
+  ],
   reviewer: [{ href: '/reviewer/queue', label: 'Antrean tinjauan', icon: ClipboardCheck, index: '01' }],
   admin: [{ href: '/admin/assignments', label: 'Penugasan reviewer', icon: UsersRound, index: '01' }],
   evaluator: [{ href: '/lab/benchmark', label: 'Benchmark cipher', icon: ChartNoAxesCombined, index: '01' }, { href: '/lab/verification', label: 'Verifikasi integritas', icon: FlaskConical, index: '02' }],

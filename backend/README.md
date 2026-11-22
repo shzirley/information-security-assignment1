@@ -105,12 +105,25 @@ Prefix `/api/v1`. Swagger: `/docs`; JSON: `/openapi.json`. Salinan spesifikasi d
 | GET / PUT | /admin/assignments, /admin/assignments/{id} | Admin; metadata tanpa profil/nama berkas/note |
 | GET / POST | /lab/runs | Evaluator, fixture terisolasi dan hasil miliknya |
 | GET | /lab/runs/{id}, /lab/runs/{id}/export | Evaluator pemilik hasil |
+| GET / PUT | /keys/me | Public key RSA-SPKI aktif milik pemohon; PUT mengganti kunci lama |
+| GET / POST | /share-requests | Daftar masuk/keluar (`?box=incoming|outgoing`) atau buat permintaan |
+| POST | /share-requests/{id}/approve, /reject, /cancel, /revoke | Transisi permintaan sesuai peran dan status |
+| GET | /share-requests/{id}/package, /items | Paket hanya untuk pemilik; metadata item hanya untuk peminta |
+| POST | /share-requests/{id}/items/{itemId}/open | Peminta membuka salinan dengan kunci dari paket, respons privat no-store |
 
 Sesi berupa token acak HttpOnly; DB hanya menyimpan hash SHA-256. CSRF signed double-submit dan Origin check berlaku pada seluruh mutation termasuk login. Login merotasi sesi dan CSRF; transport FE menghapus cache token setelah login. Respons privat no-store/nosniff; error memakai `{error:{code,message,field_errors,request_id}}`.
 
 Alur status: DRAFT → SUBMITTED → UNDER_REVIEW → ACCEPTED_DEMO/REJECTED_DEMO, atau UNDER_REVIEW → NEEDS_REVISION → RESUBMITTED → UNDER_REVIEW. Withdrawal hanya DRAFT/NEEDS_REVISION. Penugasan manual admin hanya pada SUBMITTED/RESUBMITTED. Semua transisi lain ditolak tanpa perubahan sebagian.
 
 Rincian payload, kode respons, dan panduan demo ada pada [handoff integrasi backend](../docs/assignment-1/handoffs/HANDOFF_JAHHAZA_TO_TEAM.md).
+
+### Assignment 2 — berbagi dokumen sintetis
+
+Jalankan `python manage.py migrate` untuk menambah tabel `user_public_keys`, `share_requests`, dan `share_items` melalui revisi `0003_data_sharing`; migrasi 0001/0002 tetap utuh. Cadangkan database dan `.env` sebelum upgrade. Semua rute baru memakai sesi applicant dan CSRF yang sama. `PUT /keys/me` menerima `{ "public_key_pem": "-----BEGIN PUBLIC KEY-----..." }` (RSA SPKI minimal 2048 bit). Private key tidak diterima atau disimpan server. `POST /share-requests` menerima `{ "owner_username", "purpose", "items": ["profile", "identity", "document", "video", "kk"] }`. Saat approve, pemilik mengirim `{ "application_id", "items" }` dengan subset dari item yang diminta; hasilnya `package` berawalan `VELTRIX-SHARE-1.`. Peminta membuka item dengan `{ "share_key": "<base64 32 byte>" }` setelah browser membuka paket menggunakan private key lokal.
+
+Persetujuan membuat salinan per item yang terenkripsi AES-256-GCM dengan AAD ID permintaan, item, kedua pihak, dan jenis dokumen. Kunci berbagi disimpan terbungkus KEK untuk penerbitan ulang paket saat public key peminta berubah; endpoint `open` memakai **hanya** kunci yang dikirim peminta. Pemilik dapat mencabut akses. Saat akses kedaluwarsa (7 hari) atau dicabut, baris item dan kunci terbungkus dihapus. Penolakan, pembatalan, dan percobaan `open` yang gagal masuk audit tanpa kunci atau isi dokumen. Metadata profil dan dokumen tetap berasal dari data sintetis.
+
+Tes API Assignment 2: `python -m pytest tests/test_sharing_api.py -q`. Kontrak lengkap tersedia di `backend/openapi.json` dan rancangan tugas pada `docs/assignment-2/ASSIGNMENT_2_IMPLEMENTATION_PLAN.md`.
 
 ## Format, enkripsi dan lab
 

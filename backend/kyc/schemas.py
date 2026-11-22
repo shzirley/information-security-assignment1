@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Role = Literal['applicant', 'reviewer', 'admin', 'evaluator']
@@ -80,3 +80,21 @@ class EvidenceCheck(Model):
 
 class ReviewChecks(Versioned):
     checks: list[EvidenceCheck] = Field(min_length=1, max_length=4)
+
+ShareKind = Literal['profile', 'identity', 'document', 'video', 'kk']
+
+class PublicKeyRegistration(Model):
+    public_key_pem: str = Field(min_length=200, max_length=2000)
+
+class ShareRequestCreate(Model):
+    owner_username: str = Field(pattern=r'^[a-zA-Z0-9_]{3,24}$')
+    purpose: str = Field(min_length=10, max_length=200)
+    items: list[ShareKind] = Field(min_length=1, max_length=5)
+
+class ShareApprove(Model):
+    application_id: str = Field(min_length=36, max_length=36)
+    items: list[ShareKind] = Field(min_length=1, max_length=5)
+
+class ShareOpen(Model):
+    # Validate inside the endpoint so malformed keys receive the same denial.
+    share_key: Any = None
