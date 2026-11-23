@@ -1,0 +1,91 @@
+{
+  "E01": {
+    "status": "PASSED",
+    "andi_fingerprint": "8e070b7c956aeafe1e47ec2a6bb211d70133744201fad3184bea844524f28efa",
+    "budi_fingerprint": "9fbf4a0ffa96d2c4d43667511e02fede26bf46e4056cb13be50250ef3078ba46",
+    "citra_fingerprint": "1ea1b43091737b5877faa3245f95688c836c3e53e7d7941e30e074008a4dbbf3"
+  },
+  "E02": {
+    "status": "PASSED",
+    "application_id": "1e72ced6-842f-4313-918e-71637d0917b9",
+    "app_status": "SUBMITTED",
+    "evidence_count": 2,
+    "categories": [
+      "identity",
+      "document"
+    ]
+  },
+  "E03": {
+    "status": "PASSED",
+    "request_id": "5b47f550-bb62-4580-929c-8b446ebd989c",
+    "purpose": "Pengajuan rekening HIMA Informatika",
+    "req_status": "PENDING",
+    "requester_key_id": null
+  },
+  "E04": {
+    "status": "PASSED",
+    "verified_fingerprint": "8e070b7c956aeafe",
+    "decision": "APPROVED"
+  },
+  "E05": {
+    "status": "PASSED",
+    "package_prefix": "VELTRIX-SHARE-1.eyJhbGciO...",
+    "package_length": 630,
+    "target_fingerprint_prefix": "8e070b7c956aeafe"
+  },
+  "E09_pre_revoke": {
+    "status": "PASSED",
+    "wrapped_share_key_len": 32,
+    "encrypted_items_count": 3,
+    "item_kinds": [
+      "profile",
+      "identity",
+      "document"
+    ],
+    "zero_plaintext_pii": true
+  },
+  "E06": {
+    "status": "PASSED",
+    "opened_items": {
+      "profile": {
+        "mime_type": "application/json",
+        "bytes_length": 305,
+        "sha256": "fd37d7bd28ecd5dea040fe0b9ed148f3bd40fada16f9ea87d3c70fe9e0f92e7f"
+      },
+      "identity": {
+        "mime_type": "image/png",
+        "bytes_length": 60617,
+        "sha256": "92f7b399fe90efc2a4d905b4e64ee815946f0cc6e4d0ce8fd6225221c1f02db3"
+      },
+      "document": {
+        "mime_type": "application/pdf",
+        "bytes_length": 3294,
+        "sha256": "e3220409a8f9b18704ec3bd59c465d74482ac791931c9d53d55696d63a5da4f9"
+      }
+    },
+    "cache_control": "no-store"
+  },
+  "E07": {
+    "status": "PASSED",
+    "rsa_decrypt_by_citra_failed": true,
+    "api_response_code": 403,
+    "api_error_code": "SHARE_OPEN_DENIED"
+  },
+  "E08": {
+    "status": "PASSED",
+    "revoke_status_code": 200,
+    "reopen_denied_code": 403,
+    "reopen_error_code": "SHARE_OPEN_DENIED"
+  },
+  "E09_post_revoke": {
+    "status": "PASSED",
+    "request_status": "REVOKED",
+    "wrapped_share_key_is_null": true,
+    "remaining_share_items_rows": 0
+  },
+  "E10": {
+    "status": "PASSED",
+    "persisted_id": "5b47f550-bb62-4580-929c-8b446ebd989c",
+    "persisted_status": "REVOKED"
+  }
+}
