@@ -259,7 +259,7 @@ flowchart LR
 - [x] Paket kunci hanya bisa dibuka dengan private key peminta, dan dokumen hanya bisa dibuka dengan kunci dari paket itu.
 - [x] Kunci berbagi tersimpan terbungkus KEK, dan dihapus saat dicabut atau kedaluwarsa.
 - [x] Tes T01–T14 lolos; tes Assignment 1 tetap lolos.
-- [ ] Demo E01–E10 punya bukti screenshot.
+- [x] Demo E01–E10 punya bukti screenshot.
 - [ ] Fitur Assignment 1 (upload terenkripsi, reviewer, lab benchmark) tetap berfungsi.
 - [x] ADR dan laporan menjelaskan desain, ancaman, dan batasannya.
 - [ ] Setiap anggota punya commit atau PR atas pekerjaannya.
