@@ -1,7 +1,7 @@
 # Assignment 2 — Usulan Skenario Key Management
 
 **Proyek:** VELTRIX BankKYC (simulasi pembukaan rekening dengan dokumen KYC terenkripsi)  
-**Status:** skenario disepakati tim (Opsi A: rekening organisasi mahasiswa); menunggu konfirmasi asisten dosen  
+**Status:** skenario disepakati tim (Opsi A: rekening organisasi mahasiswa); disetujui asisten dosen  
 **Rencana pengerjaan:** [ASSIGNMENT_2_IMPLEMENTATION_PLAN.md](ASSIGNMENT_2_IMPLEMENTATION_PLAN.md)
 
 ---

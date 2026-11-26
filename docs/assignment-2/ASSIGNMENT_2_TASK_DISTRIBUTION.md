@@ -12,13 +12,13 @@
 
 | ID | Keputusan | Status |
 |---|---|---|
-| DEC2-01 | Skenario: ketua HIMA meminta dokumen bendahara untuk pengajuan rekening organisasi | **Locked** (menunggu konfirmasi asdos) |
+| DEC2-01 | Skenario: ketua HIMA meminta dokumen bendahara untuk pengajuan rekening organisasi | **Locked** (disetujui asdos) |
 | DEC2-02 | Hanya akun `applicant` yang bisa meminta dan memberi akses; satu permintaan = satu pemilik | **Locked** |
 | DEC2-03 | Pasangan kunci RSA-OAEP 2048/SHA-256 dibuat di browser; **private key tidak pernah dikirim ke server** | **Locked** |
 | DEC2-04 | Kunci berbagi AES-256 dibuat saat pemilik menyetujui; salinan dokumen dienkripsi AES-256-GCM dengan AAD | **Locked** |
 | DEC2-05 | Server membuka dokumen **hanya** dengan kunci yang dikirim peminta dari paket WA | **Locked** |
 | DEC2-06 | Kunci berbagi disimpan terbungkus KEK yang sudah ada; dihapus saat dicabut/kedaluwarsa | **Locked** |
-| DEC2-07 | Masa berlaku default 7 hari; pemilik bisa mencabut kapan saja | **Proposed — confirm with asdos** |
+| DEC2-07 | Masa berlaku default 7 hari; pemilik bisa mencabut kapan saja | **Locked** (disetujui asdos) |
 | DEC2-08 | Enkripsi berlapis Assignment 1 (RC4 → DES → AES-GCM) dan lab benchmark tidak diubah | **Locked** |
 | DEC2-09 | Migrasi baru `0003_data_sharing.py`; tidak mengubah migrasi `0001`/`0002` | **Locked** |
 
@@ -227,9 +227,9 @@ Peminta harus membuktikan bahwa ia menerima paket WA dari pemilik; akun saja tid
 - Kegagalan apa pun memberi respons yang sama.
 
 ### Acceptance criteria
-- [ ] Kunci benar → dokumen identik byte demi byte.
-- [ ] Kunci acak / kunci permintaan lain / ciphertext diubah → respons identik dan tanpa plaintext.
-- [ ] Tes T02, T08, T09 lolos.
+- [x] Kunci benar → dokumen identik byte demi byte.
+- [x] Kunci acak / kunci permintaan lain / ciphertext diubah → respons identik dan tanpa plaintext.
+- [x] Tes T02, T08, T09 lolos.
 
 ### Dependencies
 M-SEC-01, C-BE-05

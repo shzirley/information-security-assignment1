@@ -253,15 +253,15 @@ flowchart LR
 
 ## 5. Definition of Done
 
-- [ ] Pemohon bisa membuat pasangan kunci; private key hanya ada di perangkat user.
-- [ ] Pemohon bisa meminta akses ke dokumen pemohon lain, dan pemilik bisa menyetujui, menolak, atau mencabut.
-- [ ] Persetujuan membuat kunci berbagi baru dan mengenkripsi salinan dokumen dengan kunci itu.
-- [ ] Paket WA hanya bisa dibuka dengan private key peminta, dan dokumen hanya bisa dibuka dengan kunci dari paket itu.
-- [ ] Kunci berbagi tersimpan terbungkus KEK, dan dihapus saat dicabut atau kedaluwarsa.
+- [x] Pemohon bisa membuat pasangan kunci; private key hanya ada di perangkat user.
+- [x] Pemohon bisa meminta akses ke dokumen pemohon lain, dan pemilik bisa menyetujui, menolak, atau mencabut.
+- [x] Persetujuan membuat kunci berbagi baru dan mengenkripsi salinan dokumen dengan kunci itu.
+- [x] Paket WA hanya bisa dibuka dengan private key peminta, dan dokumen hanya bisa dibuka dengan kunci dari paket itu.
+- [x] Kunci berbagi tersimpan terbungkus KEK, dan dihapus saat dicabut atau kedaluwarsa.
 - [ ] Tes T01–T14 lolos; tes Assignment 1 tetap lolos.
 - [ ] Demo E01–E10 punya bukti screenshot.
 - [ ] Fitur Assignment 1 (upload terenkripsi, reviewer, lab benchmark) tetap berfungsi.
-- [ ] ADR dan laporan menjelaskan desain, ancaman, dan batasannya.
+- [x] ADR dan laporan menjelaskan desain, ancaman, dan batasannya.
 - [ ] Setiap anggota punya commit atau PR atas pekerjaannya.
 
 ---
