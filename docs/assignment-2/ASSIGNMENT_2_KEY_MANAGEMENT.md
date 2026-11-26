@@ -14,8 +14,8 @@ Pada tugas lanjutan ini, sistem aplikasi web (VELTRIX BankKYC) yang sebelumnya s
 Jika Pengguna B ingin membagikan file rahasia ke Pengguna A:
 1. File dienkripsi dengan **kunci simetris** (misalnya AES-256) karena enkripsi simetris sangat cepat dan efisien untuk data besar seperti file dokumen dan gambar.
 2. Masalah klasik kriptografi simetris adalah: **Bagaimana cara mengirimkan kunci simetris tersebut ke Pengguna A secara aman?**
-3. Jika kunci simetris dikirim mentah-mentah lewat WA atau email (kanal publik / tidak aman), pihak ketiga bisa menyadapnya (*man-in-the-middle attack*).
-4. **Solusinya (Enkripsi Asimetris):** Kunci simetris tersebut dibungkus/dienkripsi terlebih dahulu menggunakan **Public Key milik Pengguna A**. Hasil enkripsinya (*Encrypted Symmetric Key*) aman untuk dikirimkan melalui jalur publik (WA/email). Hanya Pengguna A yang bisa membukanya menggunakan **Private Key milik Pengguna A**.
+3. Jika kunci simetris dikirim mentah-mentah lewat email (kanal publik / tidak aman), pihak ketiga bisa menyadapnya (*man-in-the-middle attack*).
+4. **Solusinya (Enkripsi Asimetris):** Kunci simetris tersebut dibungkus/dienkripsi terlebih dahulu menggunakan **Public Key milik Pengguna A**. Hasil enkripsinya (*Encrypted Symmetric Key*) aman untuk dikirimkan melalui jalur publik (email). Hanya Pengguna A yang bisa membukanya menggunakan **Private Key milik Pengguna A**.
 
 ---
 
@@ -51,7 +51,7 @@ sequenceDiagram
     API-->>Web: Kembalikan "Encrypted Symmetric Key"
     Web-->>UserB: Tampilkan Encrypted Key untuk disalin
 
-    Note over UserB,UserA: [DISTRIBUSI OUT-OF-BAND]<br/>User B mengirim Ciphertext Kunci via WhatsApp / Email ke User A
+    Note over UserB,UserA: [DISTRIBUSI OUT-OF-BAND]<br/>User B mengirim Ciphertext Kunci via email ke User A
 
     UserA->>Web: Buka halaman "Unlock Data", masukkan Encrypted Key & Private Key A
     Web->>API: Dekripsi kunci & ambil dokumen
@@ -132,10 +132,10 @@ Pembagian tugas ini dirancang seimbang dan terisolasi dengan batas tanggung jawa
      - Dialog konfirmasi saat mengajukan permintaan.
   2. **UI Manajemen Permintaan (*Incoming & Outgoing*):**
      - **Tab Incoming (Pemilik Data):** Menampilkan daftar siapa yang minta akses, tombol **"Approve"** dan **"Reject"**.
-     - **Modal "Share Key":** Setelah klik Approve, muncul pop-up berisi *Encrypted Key* dengan tombol **"Copy to Clipboard"** dan petunjuk: *"Kirimkan teks ini ke pemohon melalui WhatsApp/Email"*.
+     - **Modal "Share Key":** Setelah klik Approve, muncul pop-up berisi *Encrypted Key* dengan tombol **"Copy to Clipboard"** dan petunjuk: *"Kirimkan teks ini ke pemohon melalui email"*.
      - **Tab Outgoing (Pemohon):** Menampilkan status permintaan (Pending / Approved).
   3. **UI Buka Data (*Unlock & Document Viewer*):**
-     - Halaman/Modal input di mana pemohon menempelkan (*paste*) *Encrypted Key* dari WA/Email dan *Private Key* miliknya.
+     - Halaman/Modal input di mana pemohon menempelkan (*paste*) *Encrypted Key* dari email dan *Private Key* miliknya.
      - Penampil (*viewer*) gambar dan dokumen yang berhasil didekripsi.
 
 ---
@@ -146,10 +146,10 @@ Pembagian tugas ini dirancang seimbang dan terisolasi dengan batas tanggung jawa
 * **Tanggung Jawab Utama:**
   1. **End-to-End Simulation & QA:**
      - Menguji skenario nyata:
-       - User A request -> User B approve -> Copy encrypted key ke chat WA/Email simulasi -> User A paste -> data terbuka.
+       - User A request -> User B approve -> Copy encrypted key ke email simulasi -> User A paste -> data terbuka.
      - Menguji kasus negatif (*negative testing*):
        - Mencoba mendekripsi dengan Private Key yang salah (harus gagal/ditolak).
-       - Memeriksa apakah pihak ketiga yang menyadap *Encrypted Key* di WA bisa membuka data tanpa Private Key User A (verifikasi sifat enkripsi asimetris).
+       - Memeriksa apakah pihak ketiga yang menyadap *Encrypted Key* di email bisa membuka data tanpa Private Key User A (verifikasi sifat enkripsi asimetris).
   2. **Verifikasi Penyimpanan Kunci (*Security Audit*):**
      - Membuka file database SQLite (`bankkyc.db`) untuk membuktikan ke dosen/asisten bahwa tidak ada kunci simetris yang tersimpan dalam format *plaintext*.
   3. **Penyusunan Laporan Praktikum (Paper / Markdown):**

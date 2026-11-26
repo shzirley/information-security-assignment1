@@ -15,10 +15,10 @@ Dokumen ini menggantikan bagian alur di [ASSIGNMENT_2_KEY_MANAGEMENT.md](ASSIGNM
 3. **Budi** menyetujui dan memilih dokumen yang dibagikan dari salah satu pengajuannya.
 4. Server membuat **kunci berbagi** (AES-256, acak, khusus untuk permintaan ini), lalu:
    - mengenkripsi salinan dokumen terpilih dengan kunci berbagi (AES-256-GCM);
-   - mengenkripsi kunci berbagi dengan **public key Andi** (RSA-OAEP), menjadi *paket WA*;
+   - mengenkripsi kunci berbagi dengan **public key Andi** (RSA-OAEP), menjadi *paket kunci*;
    - menyimpan kunci berbagi dalam keadaan **terbungkus KEK sistem**.
-5. Budi menyalin paket WA dan mengirimkannya ke Andi lewat WhatsApp atau email.
-6. Andi menempel paket WA dan memilih file private key-nya. **Browser** membuka kunci berbagi, lalu mengirim kunci itu ke server.
+5. Budi menyalin paket kunci dan mengirimkannya ke Andi lewat email.
+6. Andi menempel paket kunci dan memilih file private key-nya. **Browser** membuka kunci berbagi, lalu mengirim kunci itu ke server.
 7. Server membuka salinan dokumen dengan kunci dari Andi. Kalau kuncinya salah, AES-GCM gagal dan akses ditolak.
 8. Budi bisa **mencabut** akses kapan saja. Akses juga **kedaluwarsa** otomatis setelah 7 hari. Saat dicabut atau kedaluwarsa, salinan dokumen dan kunci berbaginya dihapus.
 
@@ -27,14 +27,14 @@ Dokumen ini menggantikan bagian alur di [ASSIGNMENT_2_KEY_MANAGEMENT.md](ASSIGNM
 | Rahasia | Disimpan di | Siapa bisa memakainya |
 |---|---|---|
 | Private key RSA Andi | File `.pem` di perangkat Andi | Hanya Andi, di browser |
-| Public key RSA Andi | Database (tabel `user_public_keys`) | Server, untuk mengenkripsi paket WA |
-| Kunci berbagi (AES) | Database, **terbungkus KEK** | Server, untuk membuat ulang paket WA atau menghapusnya |
-| Paket WA | Chat WA/email | Hanya bisa dibuka dengan private key Andi |
+| Public key RSA Andi | Database (tabel `user_public_keys`) | Server, untuk mengenkripsi paket kunci |
+| Kunci berbagi (AES) | Database, **terbungkus KEK** | Server, untuk membuat ulang paket kunci atau menghapusnya |
+| Paket kunci | Email | Hanya bisa dibuka dengan private key Andi |
 | Salinan dokumen | Database, terenkripsi dengan kunci berbagi | Dibuka server **hanya** dengan kunci yang dikirim Andi |
 
 ### Kenapa server tidak memakai salinan kuncinya sendiri untuk membuka dokumen
 
-Kalau server memakai kunci yang ia simpan, akun Andi yang dicuri sudah cukup untuk membuka dokumen Budi. Dengan aturan "harus pakai kunci dari paket WA", penyerang butuh tiga hal sekaligus: akun Andi, pesan WA dari Budi, dan file private key Andi. Salinan kunci di server dipakai untuk dua hal saja: membuat ulang paket WA bila Andi mengganti pasangan kuncinya, dan memastikan kunci bisa dihapus saat akses dicabut.
+Kalau server memakai kunci yang ia simpan, akun Andi yang dicuri sudah cukup untuk membuka dokumen Budi. Dengan aturan "harus pakai kunci dari paket kunci", penyerang butuh tiga hal sekaligus: akun Andi, email dari Budi, dan file private key Andi. Salinan kunci di server dipakai untuk dua hal saja: membuat ulang paket kunci bila Andi mengganti pasangan kuncinya, dan memastikan kunci bisa dihapus saat akses dicabut.
 
 ---
 
@@ -54,7 +54,7 @@ Kalau server memakai kunci yang ia simpan, akun Andi yang dicuri sudah cukup unt
 
 AAD mengikat salinan dokumen ke permintaan yang tepat. Salinan dari permintaan lain tidak bisa ditukar walaupun memakai kunci yang benar.
 
-### 1.2 Format paket WA
+### 1.2 Format paket kunci
 
 Satu baris teks supaya mudah disalin:
 
@@ -146,11 +146,11 @@ Satu user hanya boleh punya satu kunci aktif (`revoked_at IS NULL`).
 | `POST /share-requests` | Peminta | Body: `owner_username`, `purpose`, `items[]`. Ditolak bila peminta belum punya public key |
 | `GET /share-requests?box=incoming` | Pemilik | Daftar permintaan masuk, termasuk sidik jari kunci peminta |
 | `GET /share-requests?box=outgoing` | Peminta | Daftar permintaan keluar dan statusnya |
-| `POST /share-requests/{id}/approve` | Pemilik | Body: `application_id`, `items[]`. Balikan: `package` (paket WA) |
+| `POST /share-requests/{id}/approve` | Pemilik | Body: `application_id`, `items[]`. Balikan: `package` (paket kunci) |
 | `POST /share-requests/{id}/reject` | Pemilik | |
 | `POST /share-requests/{id}/cancel` | Peminta | Hanya saat `PENDING` |
 | `POST /share-requests/{id}/revoke` | Pemilik | Menghapus salinan dokumen dan kunci berbagi |
-| `GET /share-requests/{id}/package` | Pemilik | Tampilkan ulang paket WA; dienkripsi ulang bila peminta sudah ganti kunci |
+| `GET /share-requests/{id}/package` | Pemilik | Tampilkan ulang paket kunci; dienkripsi ulang bila peminta sudah ganti kunci |
 | `GET /share-requests/{id}/items` | Peminta | Daftar item (metadata saja) setelah disetujui |
 | `POST /share-requests/{id}/items/{item_id}/open` | Peminta | Body: `share_key` (base64). Balikan: isi dokumen dengan `Cache-Control: no-store` |
 
@@ -161,7 +161,7 @@ Aturan keamanan di server:
 - `open` ditolak bila status bukan `APPROVED` atau sudah lewat `expires_at`.
 - Semua kegagalan membuka dokumen memakai **pesan yang sama** ("Kunci tidak valid atau akses tidak tersedia"), supaya penyerang tidak tahu bagian mana yang salah.
 - Batasi percobaan `open` dan pembuatan permintaan dengan `rate_limit` yang sudah ada.
-- Catat ke `security_events`: `SHARE_REQUESTED`, `SHARE_APPROVED`, `SHARE_REJECTED`, `SHARE_CANCELLED`, `SHARE_REVOKED`, `SHARE_EXPIRED`, `SHARE_OPENED`, `SHARE_OPEN_FAILED`. Jangan pernah mencatat kunci, paket WA, atau isi dokumen.
+- Catat ke `security_events`: `SHARE_REQUESTED`, `SHARE_APPROVED`, `SHARE_REJECTED`, `SHARE_CANCELLED`, `SHARE_REVOKED`, `SHARE_EXPIRED`, `SHARE_OPENED`, `SHARE_OPEN_FAILED`. Jangan pernah mencatat kunci, paket kunci, atau isi dokumen.
 
 ### 1.6 Frontend
 
@@ -171,12 +171,12 @@ Menu baru untuk pemohon: **"Berbagi dokumen"**.
 |---|---|
 | `/keys` — **Kunci saya** | Tombol "Buat pasangan kunci". Setelah dibuat: unduh otomatis file private key, tampilkan sidik jari, dan peringatan "Simpan file ini. Tanpa file ini kamu tidak bisa membuka dokumen yang dibagikan kepadamu." Tombol "Ganti kunci" dengan konfirmasi. |
 | `/sharing` tab **Minta akses** | Form: username pemilik, alasan, centang dokumen yang diminta (profil, KTP, formulir, video). Tombol dinonaktifkan bila belum punya kunci. |
-| `/sharing` tab **Permintaan masuk** | Daftar permintaan beserta nama peminta, alasan, dan sidik jari kuncinya. Tombol Setujui membuka modal: pilih pengajuan, pilih dokumen, konfirmasi. Setelah disetujui, tampilkan paket WA dengan tombol **Salin** dan **Kirim lewat WhatsApp** (`https://wa.me/?text=…`). Tombol Cabut akses untuk yang sudah disetujui. |
-| `/sharing` tab **Permintaan keluar** | Status permintaan. Untuk yang disetujui: tombol **Buka dokumen** → tempel paket WA dan pilih file private key → daftar dokumen → pratinjau (gambar, PDF, video). |
+| `/sharing` tab **Permintaan masuk** | Daftar permintaan beserta nama peminta, alasan, dan sidik jari kuncinya. Tombol Setujui membuka modal: pilih pengajuan, pilih dokumen, konfirmasi. Setelah disetujui, tampilkan paket kunci dengan tombol **Salin** dan **Kirim via Email** (`mailto:`). Tombol Cabut akses untuk yang sudah disetujui. |
+| `/sharing` tab **Permintaan keluar** | Status permintaan. Untuk yang disetujui: tombol **Buka dokumen** → tempel paket kunci dan pilih file private key → daftar dokumen → pratinjau (gambar, PDF, video). |
 
 Kode kriptografi browser dikumpulkan di satu file `frontend/src/lib/share-crypto.ts`:
 - `generateKeyPair()` mengembalikan public key PEM, private key PEM, dan sidik jari;
-- `parsePackage(text)` memvalidasi awalan dan isi JSON paket WA;
+- `parsePackage(text)` memvalidasi awalan dan isi JSON paket kunci;
 - `unwrapShareKey(packageText, privateKeyPem)` mengembalikan kunci berbagi.
 
 Aturan di frontend:
@@ -200,7 +200,7 @@ Pembagian tugas per anggota (ID tugas, Output, DoD, branch, dan contoh issue) ad
 |---|---|---|
 | T01 | Alur lengkap: daftar kunci → minta → setujui → buka paket dengan private key → `open` | Dokumen kembali identik byte demi byte (SHA-256 sama) |
 | T02 | `open` dengan kunci berbagi acak | Ditolak dengan pesan generik |
-| T03 | Paket WA dibuka dengan private key orang lain | Gagal di tahap RSA (diuji di level fungsi) |
+| T03 | Paket kunci dibuka dengan private key orang lain | Gagal di tahap RSA (diuji di level fungsi) |
 | T04 | Akun ketiga memanggil `open` dengan kunci yang benar | Ditolak: bukan peminta |
 | T05 | Pemilik mencabut akses, lalu peminta memanggil `open` | Ditolak; baris `share_items` dan kunci terbungkus sudah terhapus |
 | T06 | `expires_at` dimundurkan ke masa lalu | Status menjadi `EXPIRED`, `open` ditolak |
@@ -209,7 +209,7 @@ Pembagian tugas per anggota (ID tugas, Output, DoD, branch, dan contoh issue) ad
 | T09 | Ciphertext atau tag diubah 1 bit | GCM gagal, tidak ada plaintext keluar |
 | T10 | Peminta mengganti kunci, pemilik memanggil `package` | Paket baru dibuat untuk kunci baru dan bisa dibuka |
 | T11 | Database diperiksa setelah T01 | Tidak ada kunci berbagi mentah, nama, atau NIK dalam plaintext |
-| T12 | Log dan `security_events` diperiksa | Tidak ada kunci, paket WA, atau isi dokumen |
+| T12 | Log dan `security_events` diperiksa | Tidak ada kunci, paket kunci, atau isi dokumen |
 | T13 | Peminta tanpa public key membuat permintaan | Ditolak dengan pesan untuk membuat kunci dulu |
 | T14 | Permintaan ke diri sendiri, ke reviewer, atau ke admin | Ditolak |
 
@@ -256,7 +256,7 @@ flowchart LR
 - [x] Pemohon bisa membuat pasangan kunci; private key hanya ada di perangkat user.
 - [x] Pemohon bisa meminta akses ke dokumen pemohon lain, dan pemilik bisa menyetujui, menolak, atau mencabut.
 - [x] Persetujuan membuat kunci berbagi baru dan mengenkripsi salinan dokumen dengan kunci itu.
-- [x] Paket WA hanya bisa dibuka dengan private key peminta, dan dokumen hanya bisa dibuka dengan kunci dari paket itu.
+- [x] Paket kunci hanya bisa dibuka dengan private key peminta, dan dokumen hanya bisa dibuka dengan kunci dari paket itu.
 - [x] Kunci berbagi tersimpan terbungkus KEK, dan dihapus saat dicabut atau kedaluwarsa.
 - [x] Tes T01–T14 lolos; tes Assignment 1 tetap lolos.
 - [ ] Demo E01–E10 punya bukti screenshot.

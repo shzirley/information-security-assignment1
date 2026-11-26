@@ -4,7 +4,7 @@
 **Desain teknis, API, dan tes:** [ASSIGNMENT_2_IMPLEMENTATION_PLAN.md](ASSIGNMENT_2_IMPLEMENTATION_PLAN.md) (nomor § di bawah merujuk ke dokumen ini)  
 **Implementation mode:** data sintetis saja; memperluas BankKYC yang ada, bukan membuat proyek baru.
 
-> **Tujuan:** pemohon dapat meminta dokumen pemohon lain; pemilik menyetujui dan sistem membuat kunci simetris; kunci itu dikirim lewat WA/email dalam bentuk terenkripsi RSA; kunci tersimpan terbungkus KEK di server.
+> **Tujuan:** pemohon dapat meminta dokumen pemohon lain; pemilik menyetujui dan sistem membuat kunci simetris; kunci itu dikirim lewat email dalam bentuk terenkripsi RSA; kunci tersimpan terbungkus KEK di server.
 
 ---
 
@@ -16,7 +16,7 @@
 | DEC2-02 | Hanya akun `applicant` yang bisa meminta dan memberi akses; satu permintaan = satu pemilik | **Locked** |
 | DEC2-03 | Pasangan kunci RSA-OAEP 2048/SHA-256 dibuat di browser; **private key tidak pernah dikirim ke server** | **Locked** |
 | DEC2-04 | Kunci berbagi AES-256 dibuat saat pemilik menyetujui; salinan dokumen dienkripsi AES-256-GCM dengan AAD | **Locked** |
-| DEC2-05 | Server membuka dokumen **hanya** dengan kunci yang dikirim peminta dari paket WA | **Locked** |
+| DEC2-05 | Server membuka dokumen **hanya** dengan kunci yang dikirim peminta dari paket kunci | **Locked** |
 | DEC2-06 | Kunci berbagi disimpan terbungkus KEK yang sudah ada; dihapus saat dicabut/kedaluwarsa | **Locked** |
 | DEC2-07 | Masa berlaku default 7 hari; pemilik bisa mencabut kapan saja | **Locked** (disetujui asdos) |
 | DEC2-08 | Enkripsi berlapis Assignment 1 (RC4 → DES → AES-GCM) dan lab benchmark tidak diubah | **Locked** |
@@ -30,14 +30,14 @@
 
 | Workstream | Lead | Support | Prioritas | Target utama |
 |---|---|---|---|---|
-| Kontrak API & format paket WA | **Caca** | Maleka, Angela | P0 | Disepakati di hari 1–2, lalu dikunci |
+| Kontrak API & format paket kunci | **Caca** | Maleka, Angela | P0 | Disepakati di hari 1–2, lalu dikunci |
 | Skema DB + migrasi `0003` | **Caca** | Jorell | P0 | Tabel baru tanpa merusak DB lama |
 | Endpoint permintaan, persetujuan, buka dokumen | **Caca** | Maleka | P0 | Alur status dan aturan akses berjalan |
 | Modul kriptografi berbagi (AES, RSA, wrap KEK) | **Maleka** | Caca | P0 | Fungsi teruji, dipakai endpoint |
-| Kriptografi di browser (Web Crypto) | **Angela** | Maleka | P0 | Buat kunci, buka paket WA, tanpa mengirim private key |
+| Kriptografi di browser (Web Crypto) | **Angela** | Maleka | P0 | Buat kunci, buka paket kunci, tanpa mengirim private key |
 | UI Kunci saya & Berbagi dokumen | **Angela** | Caca | P0 | Alur lengkap bisa didemokan |
 | Tes keamanan & ADR | **Maleka** | Jorell | P0/P1 | T01–T14 lolos, ADR tertulis |
-| Uji E2E, simulasi WA, audit DB | **Jorell** | Semua | P0 | Bukti E01–E10 |
+| Uji E2E, pengiriman email, audit DB | **Jorell** | Semua | P0 | Bukti E01–E10 |
 | Laporan & presentasi | **Jorell** | Semua | P0 | Laporan sesuai bukti nyata |
 
 ---
@@ -65,14 +65,14 @@
 **A-FE-03 — Halaman Berbagi dokumen (`/sharing`)** `P0`
 
 - Tab **Minta akses**: username pemilik, alasan, centang dokumen (profil, KTP, formulir, video).
-- Tab **Permintaan masuk**: daftar permintaan dengan nama peminta, alasan, dan sidik jari kuncinya; modal Setujui (pilih pengajuan dan dokumen); setelah disetujui tampilkan paket WA dengan tombol **Salin** dan **Kirim lewat WhatsApp** (`https://wa.me/?text=…`); tombol Tolak dan Cabut akses.
+- Tab **Permintaan masuk**: daftar permintaan dengan nama peminta, alasan, dan sidik jari kuncinya; modal Setujui (pilih pengajuan dan dokumen); setelah disetujui tampilkan paket kunci dengan tombol **Salin** dan **Kirim via Email** (`https://wa.me/?text=…`); tombol Tolak dan Cabut akses.
 - Tab **Permintaan keluar**: status setiap permintaan; tombol Batalkan saat `PENDING`.
 - **Output:** halaman tiga tab + screenshot tiap status.
 - **DoD:** semua status (`PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`, `REVOKED`, `EXPIRED`) punya tampilan yang jelas.
 
 **A-FE-04 — Alur Buka dokumen** `P0`
 
-- Tempel paket WA + pilih file private key → `unwrapShareKey` → panggil `POST …/items/{id}/open` dengan kunci berbagi.
+- Tempel paket kunci + pilih file private key → `unwrapShareKey` → panggil `POST …/items/{id}/open` dengan kunci berbagi.
 - Pratinjau gambar, PDF, dan video memakai pola preview di `case-detail.tsx`; hapus object URL saat modal ditutup.
 - Kunci berbagi hanya di memori selama halaman terbuka.
 - **Output:** alur buka dokumen + screenshot.
@@ -164,7 +164,7 @@
 
 **J-QA-02 — Uji end-to-end E01–E10** `P0`
 
-- Jalankan skenario di §3.2 dengan bukti screenshot, termasuk pengiriman paket lewat chat WA sungguhan.
+- Jalankan skenario di §3.2 dengan bukti screenshot, termasuk pengiriman paket lewat email sungguhan.
 - **Output:** `docs/assignment-2/VERIFICATION.md` berisi langkah, hasil, dan screenshot.
 - **DoD:** setiap langkah punya hasil yang diamati, bukan hanya "siap uji".
 
@@ -210,7 +210,7 @@
 
 - Commit menjelaskan pekerjaan yang benar-benar dilakukan.
 - PR berisi ringkasan, screenshot/respons, perintah tes beserta hasilnya, batasan, dan ID tugas.
-- Jangan commit `.env`, `bankkyc.db`, KEK, file private key `.pem`, atau paket WA sungguhan.
+- Jangan commit `.env`, `bankkyc.db`, KEK, file private key `.pem`, atau paket kunci sungguhan.
 - Caca menggabungkan migrasi dan kontrak lebih dulu; Maleka membuat modul kripto terpisah supaya tidak saling menimpa `backend/kyc/main.py`; Angela rebase ke kontrak final.
 
 ### Contoh format GitHub issue
@@ -220,7 +220,7 @@
 Owner: Maleka | Support: Caca | Priority: P0
 
 ### Problem
-Peminta harus membuktikan bahwa ia menerima paket WA dari pemilik; akun saja tidak cukup.
+Peminta harus membuktikan bahwa ia menerima paket kunci dari pemilik; akun saja tidak cukup.
 
 ### Scope
 - `open` hanya mendekripsi dengan kunci yang dikirim peminta.
