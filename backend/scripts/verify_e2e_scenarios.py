@@ -6,7 +6,7 @@ Executes all 10 E2E demonstration scenarios (E01 to E10):
 - E02: Budi's pre-existing KYC application & documents
 - E03: Andi creates share request for HIMA account opening
 - E04: Budi reviews Andi's key fingerprint and approves
-- E05: WhatsApp package generation & OOB channel simulation
+- E05: Email package generation & OOB channel simulation
 - E06: Andi unwraps share key with private key & opens documents (SHA-256 verified)
 - E07: Unauthorized third party (Citra) attempts to use package -> REJECTED
 - E08: Budi revokes access; Andi attempts reopen -> REJECTED
@@ -165,9 +165,9 @@ def run_e2e_verification() -> dict:
     print(f"   ✓ Purpose    : {req_data['purpose']}")
 
     # -------------------------------------------------------------
-    # E04 & E05: Budi Review, Approve, & Generate WA Package
+    # E04 & E05: Budi Review, Approve, & Generate Email Package
     # -------------------------------------------------------------
-    print("\n[E04 & E05] Budi Menyetujui & Menghasilkan Paket WA...")
+    print("\n[E04 & E05] Budi Menyetujui & Menghasilkan Paket Email...")
     logout_client(client)
     mutate(client, "POST", "/auth/login", json={"username": "budi", "password": DEFAULT_PASSWORD})
 
@@ -201,7 +201,7 @@ def run_e2e_verification() -> dict:
         "target_fingerprint_prefix": parsed_pkg["key_fp"],
     }
     print(f"   ✓ Fingerprint Cocok : {matching_req['requester_key_fingerprint']}")
-    print(f"   ✓ Paket WA Dibuat   : {package_text[:40]}... (Total: {len(package_text)} chars)")
+    print(f"   ✓ Paket Email Dibuat: {package_text[:40]}... (Total: {len(package_text)} chars)")
 
     # -------------------------------------------------------------
     # E09 PART 1: Audit Database Sebelum Pencabutan (Data at Rest)
@@ -295,7 +295,7 @@ def run_e2e_verification() -> dict:
     # -------------------------------------------------------------
     # E07: Citra (Pihak Ketiga) Mencoba Membuka Dokumen -> REJECTED
     # -------------------------------------------------------------
-    print("\n[E07] Uji Keamanan: Citra Mencoba Memakai Paket WA...")
+    print("\n[E07] Uji Keamanan: Citra Mencoba Memakai Paket Email...")
     logout_client(client)
     res_citra_login = mutate(client, "POST", "/auth/login", json={"username": "citra", "password": DEFAULT_PASSWORD})
     assert res_citra_login.status_code == 200, f"Citra login failed: {res_citra_login.text}"

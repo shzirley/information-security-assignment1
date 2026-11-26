@@ -18,7 +18,7 @@ Pengujian dilakukan untuk membuktikan integritas, kerahasiaan, otorisasi, dan me
 | **E02** | Verifikasi pengajuan dokumen pemilik data | Budi | Profil, KTP, dan Formulir Rekening tersimpan terenkripsi dengan status `SUBMITTED` | **PASSED** |
 | **E03** | Pengajuan permintaan akses dokumen oleh peminta | Andi | Request ID diterbitkan, status awal `PENDING` dengan alasan jelas | **PASSED** |
 | **E04** | Verifikasi sidik jari kunci peminta oleh pemilik data | Budi & Andi | Sidik jari Andi dicocokkan (8e070b7c956aeafe), status berubah menjadi `APPROVED` | **PASSED** |
-| **E05** | Pembuatan dan pengiriman paket out-of-band (WhatsApp) | Budi | Paket terenkripsi RSA-OAEP diterbitkan dengan prefix `VELTRIX-SHARE-1.` | **PASSED** |
+| **E05** | Pembuatan dan pengiriman paket out-of-band (email) | Budi | Paket terenkripsi RSA-OAEP diterbitkan dengan prefix `VELTRIX-SHARE-1.` | **PASSED** |
 | **E06** | Dekripsi paket lokal & pembukaan dokumen terenkripsi | Andi | Kunci simetris terdekripsi di sisi klien, dokumen identik byte-demi-byte (SHA-256 cocok) | **PASSED** |
 | **E07** | Percobaan pembukaan dokumen oleh pihak ketiga yang tidak berhak | Citra | Dekripsi lokal gagal secara matematis; API menolak dengan `403 SHARE_OPEN_DENIED` | **PASSED** |
 | **E08** | Pencabutan hak akses (*Revocation*) oleh pemilik data | Budi & Andi | Status berubah menjadi `REVOKED`; pembukaan ulang oleh Andi ditolak `403` | **PASSED** |
@@ -84,7 +84,7 @@ Pengujian dilakukan untuk membuktikan integritas, kerahasiaan, otorisasi, dan me
 
 ---
 
-### E05 — Penerbitan Paket Out-of-Band (WhatsApp Package)
+### E05 — Penerbitan Paket Out-of-Band (Paket Email)
 - **Tujuan:** Menguji pembuatan paket terenkripsi asimetris untuk kanal komunikasi eksternal.
 - **Hasil Pengamatan:**
   - **Format Paket:** `VELTRIX-SHARE-1.<base64url_json_payload>`
@@ -163,7 +163,7 @@ SELECT COUNT(*) FROM share_items WHERE request_id = '5b47f550-bb62-4580-929c-8b4
 - **Kesimpulan Crypto-Shredding:**
   1. Kunci terbungkus `wrapped_share_key` di-overwrite menjadi `NULL`.
   2. Seluruh baris dokumen salinan pada `share_items` dihapus secara permanen (`DELETE`).
-  3. Dokumen tidak dapat didekripsi kembali oleh siapa pun, bahkan jika penyerang memiliki salinan dump database dan paket WA lama.
+  3. Dokumen tidak dapat didekripsi kembali oleh siapa pun, bahkan jika penyerang memiliki salinan dump database dan paket email lama.
 
 ---
 

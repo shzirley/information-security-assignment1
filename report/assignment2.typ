@@ -128,13 +128,13 @@
 == Business Context and Problem Setting
 In digital banking, opening organizational accounts (*e.g.*, student associations like _HIMA Informatika_) requires dual-signatory verification. Under POJK regulations on Electronic CDD and the Indonesian PDP Act (*UU PDP No. 27 of 2022*), financial onboarding mandates verifying primary officers. The chairman (*Andi*, Requester) must submit a consolidated KYC dossier incorporating identity credentials (KTP) and corporate opening forms from the treasurer (*Budi*, Data Owner / Co-signer).
 
-Exchanging unencrypted identity cards over commercial channels (WhatsApp, email) risks interception and identity theft. Conversely, granting unconditional lateral server access violates data sovereignty: the owner must retain explicit consent, scoped approval, and revocation rights, while repelling eavesdroppers (*Citra*, an Unauthorized Student).
+Exchanging unencrypted identity cards over ordinary channels such as email risks interception and identity theft. Conversely, granting unconditional lateral server access violates data sovereignty: the owner must retain explicit consent, scoped approval, and revocation rights, while repelling eavesdroppers (*Citra*, an Unauthorized Student).
 
 == End-to-End User Interaction Flow
 The sharing interaction follows a five-phase lifecycle:
 + *Request Initiation:* Andi requests access to Budi's submitted application, specifying the operational purpose and selecting required items (Profile, KTP, Form). Status: `PENDING`.
 + *Owner Verification & Approval:* Budi reviews the request, verifies Andi's public key fingerprint out-of-band, and approves. Status: `APPROVED`.
-+ *Out-of-Band Key Delivery:* The server generates an isolated symmetric key, re-encrypts requested evidence, wraps the key with Andi's public key into an armored token (`VELTRIX-SHARE-1.<base64url>`), and gives it to Budi to send via WhatsApp.
++ *Out-of-Band Key Delivery:* The server generates an isolated symmetric key, re-encrypts requested evidence, wraps the key with Andi's public key into an armored token (`VELTRIX-SHARE-1.<base64url>`), and gives it to Budi to send by email.
 + *Client-Side Unwrapping & Preview:* Andi pastes the token and imports his local private key `.pem` in the browser. Web Crypto unwraps the symmetric key locally, streaming decrypted evidence in memory without disk caching.
 + *Revocation & Crypto-Shredding:* Budi can revoke access at any time (`REVOKED`), or the 7-day TTL lapses (`EXPIRED`), instantly destroying all keys and shared ciphertext.
 
@@ -154,7 +154,7 @@ The sharing interaction follows a five-phase lifecycle:
 == At-Rest Key Wrapping and Out-of-Band Armoring
 - *Decision:* At rest, the server wraps $K_"share"$ using the Master Key-Encryption Key ($"KEK"$) via AES Key Wrap (`RFC 3394`). For transit, the server wraps $K_"share"$ with Andi's public key into an armored token:
   $ "VELTRIX-SHARE-1." || "base64url"(\{ "alg": "RSA-OAEP-256", ... \}) $
-- *Justification:* No raw symmetric keys exist at rest in `bankkyc.db`. Transit armoring ensures that even if WhatsApp is tapped, only Andi's private key can extract $K_"share"$.
+- *Justification:* No raw symmetric keys exist at rest in `bankkyc.db`. Transit armoring ensures that even if the email is intercepted, only Andi's private key can extract $K_"share"$.
 
 == Ephemeral Client Memory and Crypto-Shredding
 - *Decision:* Stream decrypted documents via `POST .../open` using `Cache-Control: no-store, no-cache, private`. Render documents in-memory via `URL.createObjectURL` and invoke `URL.revokeObjectURL` upon closing modal previews.
@@ -180,7 +180,7 @@ Why this analysis fits joint onboarding: Banking regulations mandate that sharin
         [*Threat Vector*], [*Failure Mode*], [*Mitigation & Cryptographic Proof*], [*Result*],
         table.hline(stroke: 0.4pt),
       ),
-      [OOB Interception (Citra)], [Adversary captures WhatsApp token], [RSA-OAEP rejects Citra's private key (bad padding); API checks requester identity (403).], [PASS],
+      [OOB Interception (Citra)], [Adversary captures the emailed token], [RSA-OAEP rejects Citra's private key (bad padding); API checks requester identity (403).], [PASS],
       [Ciphertext Tampering], [Adversary flips bits in storage], [AES-GCM tag mismatch immediately halts decryption; zero plaintext leakage.], [PASS],
       [Cross-Item Swap], [Adversary exchanges KTP with Form], [Contextual AAD mismatch fails GCM integrity check; swapping detected.], [PASS],
       [Stale Access Replay], [Requester accesses revoked data], [Crypto-shredding: key nulled, `share_items` deleted; API returns 403.], [PASS],
