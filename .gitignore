@@ -21,4 +21,3 @@ inference/
 backend/temp_pytest/
 *.pem
 temp_pytest/
-report/
