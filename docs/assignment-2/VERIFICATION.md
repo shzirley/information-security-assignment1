@@ -52,7 +52,7 @@ cd backend
 | `tests/test_sharing_api.py` + `tests/test_assignment2_security.py` | **11 passed** |
 | Seluruh tes backend (Assignment 1 + 2) | **114 passed**, 1 warning dari library OCR (Paddle, `ccache`), 8 menit 49 detik |
 
-Rincian kasus keamanan (penyadap, tampering paket, penukaran item antar-permintaan, rotasi kunci) ada di [laporan keamanan Assignment 2](../verification/ASSIGNMENT_2_SECURITY_REPORT.md).
+Rincian kasus keamanan (penyadap, tampering paket, penukaran item antar-permintaan, rotasi kunci) ada di [laporan keamanan Assignment 2](../verification/ASSIGNMENT_2_SECURITY_REPORT.md). Verifikasi E01–E10 lewat API dan audit penyimpanan oleh Jorell (J-QA-02, J-QA-03, 24 November 2026) ada di [VERIFICATION_API_AUDIT.md](VERIFICATION_API_AUDIT.md).
 
 ## Galeri bukti
 
