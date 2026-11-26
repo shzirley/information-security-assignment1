@@ -7,18 +7,18 @@ import {
   Copy,
   Download,
   Eye,
+  FileText,
+  Inbox,
   KeyRound,
-  Lock,
   Mail,
-  MessageCircle,
   RefreshCw,
   Send,
-  ShieldAlert,
   ShieldCheck,
   Trash2,
   Unlock,
 } from 'lucide-react';
 import { api, saveBlob } from '@/lib/api';
+import { bytes } from '@/lib/contracts';
 import { kycApi } from '@/lib/kyc-api';
 import type { ShareItem, ShareRequest } from '@/lib/kyc';
 import { decryptSharePackage, generateRsaKeyPair } from '@/lib/sharing-crypto';
@@ -33,12 +33,12 @@ const SHAREABLE_ITEMS: Array<{ id: ShareItem['kind']; label: string; desc: strin
 ];
 
 const SHARE_STATUS_META: Record<ShareRequest['status'], { label: string; tone: string }> = {
-  PENDING: { label: 'Menunggu persetujuan', tone: 'status-amber' },
-  APPROVED: { label: 'Disetujui (Aktif)', tone: 'status-emerald' },
-  REJECTED: { label: 'Ditolak', tone: 'status-rose' },
-  CANCELLED: { label: 'Dibatalkan', tone: 'status-muted' },
-  REVOKED: { label: 'Akses dicabut', tone: 'status-rose' },
-  EXPIRED: { label: 'Kedaluwarsa', tone: 'status-muted' },
+  PENDING: { label: 'Menunggu', tone: 'status-NEEDS_REVISION' },
+  APPROVED: { label: 'Aktif', tone: 'status-ACCEPTED_DEMO' },
+  REJECTED: { label: 'Ditolak', tone: 'status-REJECTED_DEMO' },
+  CANCELLED: { label: 'Dibatalkan', tone: '' },
+  REVOKED: { label: 'Akses dicabut', tone: 'status-REJECTED_DEMO' },
+  EXPIRED: { label: 'Kedaluwarsa', tone: '' },
 };
 
 const ITEM_LABELS: Record<string, string> = {
@@ -270,445 +270,273 @@ export function SharingWorkspace() {
     setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
   };
 
+
   const serverKey = myKeyQuery.data?.key ?? null;
+  const incoming = incomingQuery.data?.items ?? [];
+  const outgoing = outgoingQuery.data?.items ?? [];
+  const itemList = (items: string[]) => items.map(i => ITEM_LABELS[i] ?? i).join(', ');
 
   if (myKeyQuery.isPending || incomingQuery.isPending || outgoingQuery.isPending) {
-    return <LoadingState label="Memuat ruang manajemen kunci & berbagi data…" />;
+    return <LoadingState label="Memuat berbagi data…" />;
   }
 
+  const tabs: Array<{ id: TabKey; label: string }> = [
+    { id: 'incoming', label: `Permintaan masuk (${incoming.length})` },
+    { id: 'outgoing', label: `Permintaan keluar (${outgoing.length})` },
+    { id: 'request', label: 'Ajukan permintaan' },
+  ];
+
   return (
-    <div className="stack">
+    <>
       <PageHeading
         index="03"
-        title="Manajemen Kunci & Berbagi Data"
-        description="Berbagi data privat antar-pengguna dengan enkripsi hibrida (RSA-OAEP-256 + AES-256-GCM) dan distribusi kunci out-of-band (WhatsApp / Email)."
+        title="Berbagi data"
+        description="Minta atau bagikan dokumen KYC dengan pemohon lain. Kunci akses dikirim terenkripsi lewat email, di luar aplikasi."
       />
 
-      {/* Section 1: Client-Side RSA Key Management */}
-      <section className="panel stack-sm">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <KeyRound size={20} aria-hidden="true" />
-              <h2 style={{ margin: 0 }}>Pasangan Kunci Asimetris (RSA-2048)</h2>
-            </div>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.92rem' }}>
-              Public key didaftarkan ke server agar pemilik data dapat mengenkripsi kunci simetris untuk Anda. Private key diunduh sebagai file .pem dan hanya Anda yang menyimpannya; tidak dikirim ke server dan tidak disimpan di browser.
-            </p>
+      <div className="case-detail-grid">
+        <div className="case-detail-main">
+          <div className="lab-tabs" role="tablist" aria-label="Menu berbagi data">
+            {tabs.map(t => (
+              <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Button onClick={handleGenerateKey} busy={keyBusy}>
-              <RefreshCw size={16} aria-hidden="true" />
-              {serverKey ? 'Rotasi Kunci RSA Baru' : 'Generate & Daftar Kunci RSA'}
-            </Button>
-          </div>
+
+          {tab === 'incoming' && (
+            <section className="panel share-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-index">Sebagai pemilik data</span>
+                  <h2>Permintaan masuk</h2>
+                  <p>Saat kamu menyetujui, sistem membuat kunci AES-256 baru, mengenkripsi salinan dokumen, lalu mengunci kunci itu dengan public key peminta. Kirim paket kuncinya lewat email.</p>
+                </div>
+              </div>
+              {incomingQuery.isError && <ErrorState error={incomingQuery.error} retry={() => incomingQuery.refetch()} />}
+              {shareableApps.length === 0 && incoming.some(r => r.status === 'PENDING') && (
+                <div className="share-body"><div className="revision-banner"><strong>Belum ada pengajuan untuk dibagikan</strong><p>Buat minimal satu pengajuan KYC (draf atau terkirim) sebelum menyetujui permintaan.</p></div></div>
+              )}
+              {incoming.length === 0 ? (
+                <EmptyState title="Belum ada permintaan masuk" description="Permintaan akses dari pemohon lain akan muncul di sini." />
+              ) : incoming.map(req => {
+                const meta = SHARE_STATUS_META[req.status];
+                return (
+                  <div className="evidence-group" key={req.id}>
+                    <div className="evidence-record">
+                      <span className="record-icon"><Inbox size={21} aria-hidden="true" /></span>
+                      <div>
+                        <h3>{req.requester_username}</h3>
+                        <p>{req.purpose}</p>
+                        <p>Diminta: {itemList(req.requested_items)}{req.requester_key_fingerprint && <> · Kunci <code>{req.requester_key_fingerprint}</code></>}</p>
+                      </div>
+                      <span className={`status-pill ${meta.tone}`}>{meta.label}</span>
+                    </div>
+                    {req.status === 'PENDING' && (
+                      <div className="record-actions">
+                        <Button onClick={() => openApproveModal(req)} disabled={shareableApps.length === 0}><Check size={16} aria-hidden="true" />Setujui</Button>
+                        <Button variant="ghost" busy={rejectMutation.isPending} onClick={() => rejectMutation.mutate(req.id)}>Tolak</Button>
+                      </div>
+                    )}
+                    {req.status === 'APPROVED' && (
+                      <div className="record-actions">
+                        <Button variant="secondary" busy={fetchPackageMutation.isPending} onClick={() => fetchPackageMutation.mutate(req)}><KeyRound size={16} aria-hidden="true" />Lihat paket kunci</Button>
+                        <Button variant="ghost" busy={revokeMutation.isPending} onClick={() => revokeMutation.mutate(req.id)}><Trash2 size={16} aria-hidden="true" />Cabut akses</Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
+          {tab === 'outgoing' && (
+            <section className="panel share-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-index">Sebagai peminta</span>
+                  <h2>Permintaan keluar</h2>
+                  <p>Setelah pemilik menyetujui dan mengirim paket <code>VELTRIX-SHARE-1…</code> lewat email, buka dokumennya di sini dengan file private key milikmu.</p>
+                </div>
+              </div>
+              {outgoingQuery.isError && <ErrorState error={outgoingQuery.error} retry={() => outgoingQuery.refetch()} />}
+              {outgoing.length === 0 ? (
+                <EmptyState
+                  title="Belum ada permintaan keluar"
+                  description="Ajukan permintaan akses ke dokumen pemohon lain."
+                  action={<Button onClick={() => setTab('request')}>Ajukan permintaan</Button>}
+                />
+              ) : outgoing.map(req => {
+                const meta = SHARE_STATUS_META[req.status];
+                return (
+                  <div className="evidence-group" key={req.id}>
+                    <div className="evidence-record">
+                      <span className="record-icon"><Send size={21} aria-hidden="true" /></span>
+                      <div>
+                        <h3>{req.owner_username}</h3>
+                        <p>{req.purpose}</p>
+                        <p>Diminta: {itemList(req.requested_items)}</p>
+                      </div>
+                      <span className={`status-pill ${meta.tone}`}>{meta.label}</span>
+                    </div>
+                    {req.status === 'PENDING' && (
+                      <div className="record-actions">
+                        <Button variant="ghost" busy={cancelMutation.isPending} onClick={() => cancelMutation.mutate(req.id)}>Batalkan permintaan</Button>
+                      </div>
+                    )}
+                    {req.status === 'APPROVED' && (
+                      <div className="record-actions">
+                        <Button onClick={() => openUnlockModal(req)}><Unlock size={16} aria-hidden="true" />Buka dokumen</Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
+          {tab === 'request' && (
+            <section className="panel share-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-index">Permintaan baru</span>
+                  <h2>Ajukan permintaan akses</h2>
+                  <p>Masukkan username pemilik data dan pilih dokumen yang ingin kamu lihat. Pemilik bisa menyetujui sebagian atau menolak.</p>
+                </div>
+              </div>
+              <form
+                className="share-body form-stack"
+                onSubmit={e => {
+                  e.preventDefault();
+                  createRequestMutation.mutate();
+                }}
+              >
+                {!serverKey && (
+                  <div className="revision-banner"><strong>Buat kunci berbagi dulu</strong><p>Permintaan hanya bisa dikirim setelah kamu membuat pasangan kunci RSA di panel kanan.</p></div>
+                )}
+                {createRequestMutation.isError && <ErrorState error={createRequestMutation.error} />}
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="share-owner-username">Username pemilik data</label>
+                    <input id="share-owner-username" type="text" placeholder="Contoh: demo_user" value={targetOwner} onChange={e => setTargetOwner(e.target.value)} required disabled={!serverKey || createRequestMutation.isPending} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="share-purpose">Tujuan permintaan</label>
+                    <input id="share-purpose" type="text" placeholder="Minimal 10 karakter" value={purpose} onChange={e => setPurpose(e.target.value)} minLength={10} maxLength={300} required disabled={!serverKey || createRequestMutation.isPending} />
+                  </div>
+                </div>
+                <fieldset className="share-fieldset">
+                  <legend className="standalone-label">Dokumen yang diminta</legend>
+                  <div className="share-options">
+                    {SHAREABLE_ITEMS.map(item => (
+                      <label key={item.id} className="checkbox-field">
+                        <input type="checkbox" checked={selectedRequestItems.includes(item.id)} onChange={() => toggleItem(selectedRequestItems, setSelectedRequestItems, item.id)} disabled={!serverKey || createRequestMutation.isPending} />
+                        <span>{item.label}<small>{item.desc}</small></span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="form-actions">
+                  <Button type="submit" busy={createRequestMutation.isPending} disabled={!serverKey || !targetOwner.trim() || purpose.trim().length < 10 || selectedRequestItems.length === 0}>
+                    <Send size={16} aria-hidden="true" />Kirim permintaan
+                  </Button>
+                </div>
+              </form>
+            </section>
+          )}
         </div>
 
-        {keyError && <ErrorState error={new Error(keyError)} />}
-        {keyNotice && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.35)', fontSize: '0.9rem' }}>
-            {keyNotice}
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
-          <div style={{ padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--surface-2, var(--surface))' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Public Key di Server</div>
+        <aside className="case-detail-aside">
+          <section className="panel case-next share-key">
+            <span className="section-index">Kunci berbagi</span>
+            <h2>Kunci RSA-2048</h2>
             {serverKey ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
-                <ShieldCheck size={17} style={{ color: '#10b981' }} />
-                <code>{serverKey.fingerprint}</code>
-              </div>
+              <p><span className="status-pill status-ACCEPTED_DEMO">Terdaftar</span><br />Fingerprint <code>{serverKey.fingerprint}</code>. Private key hanya ada di file <code>veltrix-private-key-{username}.pem</code> milikmu.</p>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f59e0b', fontWeight: 500 }}>
-                <ShieldAlert size={17} />
-                Belum terdaftar
-              </div>
+              <p><span className="status-pill status-NEEDS_REVISION">Belum ada kunci</span><br />Buat kunci sebelum meminta dokumen. Private key akan diunduh sebagai file .pem dan tidak disimpan di server maupun browser.</p>
             )}
-          </div>
-          <div style={{ padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'var(--surface-2, var(--surface))' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Private Key</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--muted)' }}>
-              <Lock size={17} />
-              {serverKey
-                ? `Hanya di file veltrix-private-key-${username}.pem milikmu. Pilih file itu saat membuka data.`
-                : 'Akan diunduh sebagai file .pem saat kunci dibuat.'}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }} role="tablist" aria-label="Menu berbagi data">
-        <Button variant={tab === 'incoming' ? 'primary' : 'secondary'} onClick={() => setTab('incoming')}>
-          Permintaan Masuk ({incomingQuery.data?.items.length ?? 0})
-        </Button>
-        <Button variant={tab === 'outgoing' ? 'primary' : 'secondary'} onClick={() => setTab('outgoing')}>
-          Permintaan Keluar ({outgoingQuery.data?.items.length ?? 0})
-        </Button>
-        <Button variant={tab === 'request' ? 'primary' : 'secondary'} onClick={() => setTab('request')}>
-          <Send size={15} aria-hidden="true" />
-          Ajukan Permintaan Akses
-        </Button>
+            {keyNotice && <p className="inline-note" role="status">{keyNotice}</p>}
+            {keyError && <ErrorState error={new Error(keyError)} />}
+            <Button className="full-width" variant={serverKey ? 'secondary' : 'primary'} onClick={handleGenerateKey} busy={keyBusy}>
+              <RefreshCw size={16} aria-hidden="true" />{serverKey ? 'Ganti kunci' : 'Buat kunci'}
+            </Button>
+          </section>
+          <section className="scope-card">
+            <ShieldCheck size={24} aria-hidden="true" />
+            <h3>Cara kerjanya</h3>
+            <p>Pemilik menyetujui, sistem membuat kunci AES-256 khusus untuk permintaan itu, lalu menguncinya dengan public key peminta. Paket kunci dikirim lewat email dan hanya bisa dibuka dengan private key peminta.</p>
+            <p className="small-note">Akses berlaku 7 hari dan bisa dicabut pemilik kapan saja.</p>
+          </section>
+        </aside>
       </div>
 
-      {/* TAB 1: Incoming Requests (Owner Side) */}
-      {tab === 'incoming' && (
-        <section className="panel stack-sm">
-          <div>
-            <h2 style={{ margin: 0 }}>Permintaan Masuk (Sebagai Pemilik Data)</h2>
-            <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
-              Saat Anda menyetujui permintaan, sistem membuat kunci simetris AES-256 baru, mengenkripsi salinan dokumen, lalu membungkus kunci tersebut dengan Public Key pemohon (RSA-OAEP-256) untuk Anda kirim via WhatsApp/Email.
-            </p>
-          </div>
-          {incomingQuery.isError && <ErrorState error={incomingQuery.error} retry={() => incomingQuery.refetch()} />}
-          {incomingQuery.data && incomingQuery.data.items.length === 0 ? (
-            <EmptyState
-              title="Belum ada permintaan masuk"
-              description="Permintaan akses data dari pengguna lain akan muncul di sini."
-            />
-          ) : (
-            <div className="stack-sm">
-              {incomingQuery.data?.items.map(req => {
-                const meta = SHARE_STATUS_META[req.status];
-                return (
-                  <article
-                    key={req.id}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: '0.6rem',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: '1rem',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <div style={{ flex: '1 1 280px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                        <strong>Pemohon: {req.requester_username}</strong>
-                        <span className={`badge ${meta.tone}`}>{meta.label}</span>
-                        {req.requester_key_fingerprint && (
-                          <code style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
-                            Key FP: {req.requester_key_fingerprint}
-                          </code>
-                        )}
-                      </div>
-                      <p style={{ margin: '0.25rem 0', fontSize: '0.92rem' }}>
-                        <strong>Tujuan:</strong> {req.purpose}
-                      </p>
-                      <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                        Dokumen diminta: {req.requested_items.map(i => ITEM_LABELS[i] ?? i).join(', ')}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {req.status === 'PENDING' && (
-                        <>
-                          <Button onClick={() => openApproveModal(req)} disabled={shareableApps.length === 0}>
-                            <Check size={15} aria-hidden="true" />
-                            Setujui & Buat Kunci
-                          </Button>
-                          <Button
-                            variant="danger"
-                            busy={rejectMutation.isPending}
-                            onClick={() => rejectMutation.mutate(req.id)}
-                          >
-                            Tolak
-                          </Button>
-                        </>
-                      )}
-                      {req.status === 'APPROVED' && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            busy={fetchPackageMutation.isPending}
-                            onClick={() => fetchPackageMutation.mutate(req)}
-                          >
-                            <KeyRound size={15} aria-hidden="true" />
-                            Lihat Paket Kunci (WA/Email)
-                          </Button>
-                          <Button
-                            variant="danger"
-                            busy={revokeMutation.isPending}
-                            onClick={() => revokeMutation.mutate(req.id)}
-                          >
-                            <Trash2 size={15} aria-hidden="true" />
-                            Cabut Akses
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-              {shareableApps.length === 0 && incomingQuery.data?.items.some(r => r.status === 'PENDING') && (
-                <p style={{ color: '#f59e0b', fontSize: '0.88rem', margin: 0 }}>
-                  Catatan: Anda memerlukan minimal satu pengajuan KYC (draf atau terkirim, bukan yang ditarik) agar dapat menyetujui permintaan berbagi data.
-                </p>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* TAB 2: Outgoing Requests (Requester Side) */}
-      {tab === 'outgoing' && (
-        <section className="panel stack-sm">
-          <div>
-            <h2 style={{ margin: 0 }}>Permintaan Keluar (Sebagai Pemohon)</h2>
-            <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
-              Setelah pemilik data menyetujui permintaan Anda dan mengirimkan paket <code>VELTRIX-SHARE-1...</code> via WhatsApp/Email, buka dokumennya di sini menggunakan Private Key Anda.
-            </p>
-          </div>
-          {outgoingQuery.isError && <ErrorState error={outgoingQuery.error} retry={() => outgoingQuery.refetch()} />}
-          {outgoingQuery.data && outgoingQuery.data.items.length === 0 ? (
-            <EmptyState
-              title="Belum ada permintaan keluar"
-              description="Ajukan permintaan akses data ke pemohon lain pada tab Ajukan Permintaan."
-              action={<Button onClick={() => setTab('request')}>Ajukan Permintaan</Button>}
-            />
-          ) : (
-            <div className="stack-sm">
-              {outgoingQuery.data?.items.map(req => {
-                const meta = SHARE_STATUS_META[req.status];
-                return (
-                  <article
-                    key={req.id}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: '0.6rem',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: '1rem',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <div style={{ flex: '1 1 280px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                        <strong>Pemilik Data: {req.owner_username}</strong>
-                        <span className={`badge ${meta.tone}`}>{meta.label}</span>
-                      </div>
-                      <p style={{ margin: '0.25rem 0', fontSize: '0.92rem' }}>
-                        <strong>Tujuan:</strong> {req.purpose}
-                      </p>
-                      <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                        Dokumen diminta: {req.requested_items.map(i => ITEM_LABELS[i] ?? i).join(', ')}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {req.status === 'PENDING' && (
-                        <Button
-                          variant="secondary"
-                          busy={cancelMutation.isPending}
-                          onClick={() => cancelMutation.mutate(req.id)}
-                        >
-                          Batalkan
-                        </Button>
-                      )}
-                      {req.status === 'APPROVED' && (
-                        <Button onClick={() => openUnlockModal(req)}>
-                          <Unlock size={15} aria-hidden="true" />
-                          Buka Paket Kunci & Lihat Data
-                        </Button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* TAB 3: Create New Request */}
-      {tab === 'request' && (
-        <section className="panel stack-sm">
-          <div>
-            <h2 style={{ margin: 0 }}>Ajukan Permintaan Akses Data Pengguna Lain</h2>
-            <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
-              Masukkan username pemohon target dan pilih data sintetis yang ingin Anda minta aksesnya.
-            </p>
-          </div>
-          {!serverKey && (
-            <div style={{ padding: '0.85rem 1rem', borderRadius: '0.5rem', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', fontSize: '0.9rem' }}>
-              Anda harus men-generate dan mendaftarkan <strong>Kunci RSA</strong> terlebih dahulu di panel atas sebelum dapat mengajukan permintaan akses.
-            </div>
-          )}
-          {createRequestMutation.isError && <ErrorState error={createRequestMutation.error} />}
-          <form
-            className="stack-sm"
-            onSubmit={e => {
-              e.preventDefault();
-              createRequestMutation.mutate();
-            }}
-          >
-            <div className="field">
-              <label htmlFor="share-owner-username">Username Pemilik Data</label>
-              <input
-                id="share-owner-username"
-                type="text"
-                placeholder="Contoh: applicant_demo"
-                value={targetOwner}
-                onChange={e => setTargetOwner(e.target.value)}
-                required
-                disabled={!serverKey || createRequestMutation.isPending}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="share-purpose">Tujuan Permintaan Akses</label>
-              <input
-                id="share-purpose"
-                type="text"
-                placeholder="Contoh: Verifikasi berkas keanggotaan organisasi (minimal 10 karakter)"
-                value={purpose}
-                onChange={e => setPurpose(e.target.value)}
-                minLength={10}
-                maxLength={300}
-                required
-                disabled={!serverKey || createRequestMutation.isPending}
-              />
-            </div>
-            <fieldset style={{ border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.85rem 1rem' }}>
-              <legend style={{ padding: '0 0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Pilih Item Data yang Diminta</legend>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem' }}>
-                {SHAREABLE_ITEMS.map(item => (
-                  <label key={item.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedRequestItems.includes(item.id)}
-                      onChange={() => toggleItem(selectedRequestItems, setSelectedRequestItems, item.id)}
-                      disabled={!serverKey || createRequestMutation.isPending}
-                    />
-                    <span>
-                      <strong style={{ display: 'block', fontSize: '0.9rem' }}>{item.label}</strong>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{item.desc}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <div>
-              <Button
-                type="submit"
-                busy={createRequestMutation.isPending}
-                disabled={!serverKey || !targetOwner.trim() || purpose.trim().length < 10 || selectedRequestItems.length === 0}
-              >
-                <Send size={16} aria-hidden="true" />
-                Kirim Permintaan Akses
-              </Button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {/* MODAL 1: Approve Request */}
+      {/* Approve request */}
       <Modal
         open={Boolean(approveTarget)}
         onOpenChange={open => { if (!open) setApproveTarget(null); }}
-        title="Setujui Permintaan & Generate Kunci Simetris"
-        description={
-          approveTarget
-            ? `Pilih pengajuan dan dokumen yang ingin dibagikan kepada ${approveTarget.requester_username}.`
-            : ''
-        }
+        title="Setujui permintaan"
+        description={approveTarget ? `Pilih pengajuan dan dokumen yang dibagikan kepada ${approveTarget.requester_username}.` : ''}
       >
         {approveTarget && (
-          <div className="stack-sm">
+          <>
             {approveMutation.isError && <ErrorState error={approveMutation.error} />}
             <div className="field">
-              <label htmlFor="approve-app-select">Sumber Pengajuan KYC</label>
-              <select
-                id="approve-app-select"
-                value={approveAppId}
-                onChange={e => setApproveAppId(e.target.value)}
-              >
-                {shareableApps.map(app => (
-                  <option key={app.id} value={app.id}>
-                    {app.reference} — ({app.status})
-                  </option>
-                ))}
+              <label htmlFor="approve-app-select">Sumber pengajuan</label>
+              <select id="approve-app-select" value={approveAppId} onChange={e => setApproveAppId(e.target.value)}>
+                {shareableApps.map(app => <option key={app.id} value={app.id}>{app.reference} ({app.status})</option>)}
               </select>
             </div>
-            <div className="stack-xs">
-              <strong style={{ fontSize: '0.9rem' }}>Item yang Disetujui untuk Dibagikan:</strong>
+            <fieldset className="share-fieldset">
+              <legend className="standalone-label">Dokumen yang dibagikan</legend>
               {approveTarget.requested_items.map(kind => (
-                <label key={kind} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={approveItems.includes(kind)}
-                    onChange={() => toggleItem(approveItems, setApproveItems, kind)}
-                  />
+                <label key={kind} className="checkbox-field">
+                  <input type="checkbox" checked={approveItems.includes(kind)} onChange={() => toggleItem(approveItems, setApproveItems, kind)} />
                   <span>{ITEM_LABELS[kind] ?? kind}</span>
                 </label>
               ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+            </fieldset>
+            {approveTarget.requester_key_fingerprint && <p className="small-note">Cocokkan fingerprint kunci peminta dengan orangnya: <code>{approveTarget.requester_key_fingerprint}</code></p>}
+            <div className="modal-actions">
               <Button variant="secondary" onClick={() => setApproveTarget(null)}>Batal</Button>
-              <Button
-                busy={approveMutation.isPending}
-                disabled={!approveAppId || approveItems.length === 0}
-                onClick={() => approveMutation.mutate({ id: approveTarget.id, appId: approveAppId, items: approveItems })}
-              >
-                <KeyRound size={15} aria-hidden="true" />
-                Generate Kunci & Enkripsi Paket
+              <Button busy={approveMutation.isPending} disabled={!approveAppId || approveItems.length === 0} onClick={() => approveMutation.mutate({ id: approveTarget.id, appId: approveAppId, items: approveItems })}>
+                <KeyRound size={16} aria-hidden="true" />Setujui &amp; buat paket kunci
               </Button>
             </div>
-          </div>
+          </>
         )}
       </Modal>
 
-      {/* MODAL 2: Out-of-Band Encrypted Symmetric Key Package */}
+      {/* Encrypted key package to send out of band */}
       <Modal
         open={Boolean(packageModal)}
         onOpenChange={open => { if (!open) setPackageModal(null); }}
-        title="Paket Kunci Terenkripsi (Out-of-Band)"
-        description="Kunci simetris AES-256 telah dienkripsi menggunakan Public Key RSA-OAEP-256 milik pemohon. Salin dan kirimkan melalui WhatsApp atau Email."
+        title="Paket kunci terenkripsi"
+        description={packageModal ? `Kirim paket ini ke ${packageModal.requester} lewat email. Hanya private key miliknya yang bisa membukanya.` : ''}
       >
         {packageModal && (
-          <div className="stack-sm">
-            <div style={{ padding: '0.75rem', borderRadius: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.35)', fontSize: '0.86rem' }}>
-              <strong>Aman dikirim melalui jalur publik (WA/Email):</strong> Meskipun disadap pihak ketiga, hanya <strong>{packageModal.requester}</strong> yang dapat mendekripsi kunci ini menggunakan Private Key lokalnya.
+          <>
+            <div className="hex-sample share-package">
+              <span>VELTRIX-SHARE-1 · RSA-OAEP-256</span>
+              <code>{packageModal.packageText}</code>
             </div>
-            <div className="field">
-              <label htmlFor="oob-package-text">Paket VELTRIX-SHARE-1</label>
-              <textarea
-                id="oob-package-text"
-                readOnly
-                rows={5}
-                value={packageModal.packageText}
-                style={{ fontFamily: 'monospace', fontSize: '0.8rem', wordBreak: 'break-all' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <Button onClick={handleCopyPackage}>
-                {copiedPackage ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
-                {copiedPackage ? 'Tersalin!' : 'Salin Paket Kunci'}
+            <p className="small-note">Aman walaupun email dibaca pihak lain: tanpa private key {packageModal.requester}, paket ini tidak bisa dibuka.</p>
+            <div className="modal-actions">
+              <Button variant="secondary" onClick={handleCopyPackage}>
+                {copiedPackage ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                {copiedPackage ? 'Tersalin' : 'Salin paket'}
               </Button>
               <a
-                className="button button-secondary"
-                href={`https://wa.me/?text=${encodeURIComponent(`Berikut paket kunci terenkripsi VELTRIX untuk permintaan akses data Anda:\n\n${packageModal.packageText}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <MessageCircle size={15} aria-hidden="true" />
-                Kirim via WhatsApp
-              </a>
-              <a
-                className="button button-secondary"
+                className="button button-primary"
                 href={`mailto:?subject=${encodeURIComponent('VELTRIX Encrypted Share Key Package')}&body=${encodeURIComponent(`Berikut paket kunci terenkripsi VELTRIX (RSA-OAEP-256):\n\n${packageModal.packageText}`)}`}
               >
-                <Mail size={15} aria-hidden="true" />
-                Kirim via Email
+                <Mail size={16} aria-hidden="true" />Kirim via Email
               </a>
             </div>
-          </div>
+          </>
         )}
       </Modal>
 
-      {/* MODAL 3: Unlock & Decrypt Shared Documents (Requester Side) */}
+      {/* Unlock and preview shared documents */}
       <Modal
         open={Boolean(unlockTarget)}
         onOpenChange={open => {
@@ -717,177 +545,97 @@ export function SharingWorkspace() {
             setPreview(null);
           }
         }}
-        title="Buka Paket Kunci & Dekripsi Data"
-        description={
-          unlockTarget
-            ? `Tempel paket VELTRIX-SHARE-1 yang Anda terima dari ${unlockTarget.owner_username} (via WhatsApp/Email) untuk mendekripsi kunci simetris secara lokal di browser.`
-            : ''
-        }
+        title={decryptedShareKey ? 'Dokumen yang dibagikan' : 'Buka paket kunci'}
+        description={unlockTarget ? (decryptedShareKey
+          ? `Dokumen dari ${unlockTarget.owner_username} didekripsi di memori. Tutup setelah selesai.`
+          : `Tempel paket dari email ${unlockTarget.owner_username} dan pilih file private key milikmu. Kunci dibuka di browser, private key tidak dikirim ke server.`) : ''}
       >
         {unlockTarget && (
-          <div className="stack-sm">
+          <>
             {unlockError && <ErrorState error={new Error(unlockError)} />}
-
             {!decryptedShareKey ? (
               <>
                 <div className="field">
-                  <label htmlFor="unlock-package-input">Paket Terenkripsi (dari WhatsApp / Email)</label>
-                  <textarea
-                    id="unlock-package-input"
-                    rows={4}
-                    placeholder="VELTRIX-SHARE-1.eyJhbGciOiJSU0EtT0FFUC0yNTYi..."
-                    value={pastePackage}
-                    onChange={e => setPastePackage(e.target.value)}
-                    style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  />
+                  <label htmlFor="unlock-package-input">Paket kunci dari email</label>
+                  <textarea id="unlock-package-input" className="mono" rows={4} placeholder="VELTRIX-SHARE-1.eyJ…" value={pastePackage} onChange={e => setPastePackage(e.target.value)} />
                 </div>
                 <div className="field">
-                  <label htmlFor="unlock-privkey-input">
-                    Private Key RSA Anda (PKCS#8 PEM — diproses lokal di browser)
-                  </label>
+                  <label htmlFor="unlock-privkey-file">File private key (.pem)</label>
                   <input
+                    id="unlock-privkey-file"
                     type="file"
                     accept=".pem"
-                    aria-label="Pilih file private key (.pem)"
                     onChange={async e => {
                       const file = e.target.files?.[0];
                       if (file) setUnlockPrivateKey(await file.text());
                       e.target.value = '';
                     }}
                   />
-                  <textarea
-                    id="unlock-privkey-input"
-                    rows={4}
-                    placeholder="-----BEGIN PRIVATE KEY-----..."
-                    value={unlockPrivateKey}
-                    onChange={e => setUnlockPrivateKey(e.target.value)}
-                    style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
-                  />
+                  <p className="small-note">{unlockPrivateKey ? 'Private key sudah dimuat.' : 'Belum ada file dipilih.'}</p>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <div className="modal-actions">
                   <Button variant="secondary" onClick={() => setUnlockTarget(null)}>Tutup</Button>
-                  <Button
-                    busy={unlocking}
-                    disabled={!pastePackage.trim() || !unlockPrivateKey.trim()}
-                    onClick={handleDecryptPackage}
-                  >
-                    <Unlock size={15} aria-hidden="true" />
-                    Dekripsi Paket Kunci
+                  <Button busy={unlocking} disabled={!pastePackage.trim() || !unlockPrivateKey.trim()} onClick={handleDecryptPackage}>
+                    <Unlock size={16} aria-hidden="true" />Buka paket
                   </Button>
                 </div>
               </>
             ) : (
-              <div className="stack-sm">
-                <div style={{ padding: '0.75rem', borderRadius: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.35)', fontSize: '0.88rem' }}>
-                  <strong>Kunci simetris AES-256 (32-byte) berhasil didekripsi secara lokal!</strong> Pilih dokumen di bawah untuk membukanya dalam mode pratinjau in-memory.
-                </div>
-
-                <div className="stack-xs">
-                  {sharedItems.map(item => (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '0.65rem 0.85rem',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      <div>
-                        <strong>{ITEM_LABELS[item.kind] ?? item.display_name}</strong>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                          {item.mime_type} · {(item.original_bytes / 1024).toFixed(1)} KiB
-                        </div>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        busy={openingItemId === item.id}
-                        onClick={() => handleOpenSharedItem(item)}
-                      >
-                        <Eye size={15} aria-hidden="true" />
-                        Buka Data
-                      </Button>
+              <>
+                {sharedItems.map(item => (
+                  <div className="selected-file" key={item.id}>
+                    <FileText size={20} aria-hidden="true" />
+                    <div>
+                      <strong>{ITEM_LABELS[item.kind] ?? item.display_name}</strong>
+                      <span>{item.mime_type} · {bytes(item.original_bytes)}</span>
                     </div>
-                  ))}
-                </div>
+                    <Button variant="secondary" busy={openingItemId === item.id} onClick={() => handleOpenSharedItem(item)}>
+                      <Eye size={16} aria-hidden="true" />Lihat
+                    </Button>
+                  </div>
+                ))}
 
-                {/* In-Memory Decrypted Preview Area */}
                 {preview && (
-                  <div
-                    style={{
-                      marginTop: '0.5rem',
-                      padding: '0.85rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      background: 'var(--surface-2, var(--surface))',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                      <strong>Pratinjau In-Memory: {preview.title}</strong>
+                  <div className="share-preview">
+                    <div className="share-preview-heading">
+                      <strong>{preview.title}</strong>
                       {preview.blob && (
-                        <Button
-                          variant="secondary"
-                          onClick={() => saveBlob(preview.blob!, preview.filename)}
-                        >
-                          <Download size={14} aria-hidden="true" />
-                          Unduh
+                        <Button variant="ghost" onClick={() => saveBlob(preview.blob!, preview.filename)}>
+                          <Download size={16} aria-hidden="true" />Unduh
                         </Button>
                       )}
                     </div>
-
                     {preview.json && (
-                      <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '0.35rem 1rem', margin: 0, fontSize: '0.88rem' }}>
+                      <dl className="profile-reveal">
                         {Object.entries(preview.json).map(([k, v]) => (
-                          <div key={k} style={{ display: 'contents' }}>
-                            <dt style={{ color: 'var(--muted)', fontWeight: 600 }}>{k}</dt>
-                            <dd style={{ margin: 0 }}>{String(v)}</dd>
-                          </div>
+                          <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>
                         ))}
                       </dl>
                     )}
-
-                    {preview.blobUrl && preview.mime.startsWith('image/') && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={preview.blobUrl}
-                        alt={preview.title}
-                        style={{ maxWidth: '100%', maxHeight: '360px', borderRadius: '0.4rem', objectFit: 'contain' }}
-                      />
+                    {preview.blobUrl && (
+                      <div className="evidence-preview">
+                        {preview.mime.startsWith('image/') ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={preview.blobUrl} alt={preview.title} />
+                        ) : preview.mime === 'application/pdf' ? (
+                          <iframe src={preview.blobUrl} title={preview.title} />
+                        ) : preview.mime.startsWith('video/') ? (
+                          <video src={preview.blobUrl} controls playsInline aria-label={preview.title} />
+                        ) : (
+                          <p>Format ini tidak dapat dipratinjau. Gunakan Unduh untuk membukanya.</p>
+                        )}
+                      </div>
                     )}
-
-                    {preview.blobUrl && preview.mime === 'application/pdf' && (
-                      <iframe
-                        src={preview.blobUrl}
-                        title={preview.title}
-                        style={{ width: '100%', height: '380px', border: '1px solid var(--border)', borderRadius: '0.4rem' }}
-                      />
-                    )}
-
-                    {preview.blobUrl && preview.mime.startsWith('video/') && (
-                      <video
-                        src={preview.blobUrl}
-                        controls
-                        style={{ width: '100%', maxHeight: '360px', borderRadius: '0.4rem' }}
-                      />
-                    )}
-
-                    {preview.blobUrl &&
-                      !preview.mime.startsWith('image/') &&
-                      preview.mime !== 'application/pdf' &&
-                      !preview.mime.startsWith('video/') && (
-                        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--muted)' }}>
-                          Berkas ({preview.mime}) berhasil didekripsi. Gunakan tombol Unduh di atas untuk menyimpannya.
-                        </p>
-                      )}
                   </div>
                 )}
-              </div>
+                <div className="modal-actions">
+                  <Button variant="secondary" onClick={() => { setUnlockTarget(null); setPreview(null); }}>Tutup</Button>
+                </div>
+              </>
             )}
-          </div>
+          </>
         )}
       </Modal>
-    </div>
+    </>
   );
 }

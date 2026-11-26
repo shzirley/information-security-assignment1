@@ -687,6 +687,21 @@ html { scroll-behavior: smooth; scroll-padding-top: 100px; }
 .scope-card p { font-size: 12px; line-height: 1.8; }
 .scope-card .small-note { font-size: 11px; }
 .reviewer-actions { display: flex; flex-direction: column; gap: 10px; }
+.share-panel .panel-heading { align-items: flex-start; border-bottom: 1px solid var(--border); }
+.share-panel .panel-heading p { margin: 8px 0 0; font-size: 12px; line-height: 1.7; max-width: 560px; }
+.share-panel .evidence-group:first-of-type { border-top: 0; }
+.share-panel .evidence-record p + p { margin-top: 5px; color: var(--muted); }
+.share-body { padding: 24px; }
+.share-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.share-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.share-fieldset .checkbox-field small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+.share-key p { font-size: 12px; line-height: 1.8; margin-bottom: 20px; }
+.share-key .status-pill { margin-bottom: 8px; }
+.share-key code, .share-panel code { font-size: 11px; overflow-wrap: anywhere; }
+.share-package code { display: block; max-height: 180px; overflow-y: auto; }
+.selected-file + .selected-file { margin-top: 10px; }
+.share-preview { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.share-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
 .case-timeline { margin-top: 26px; }
 .case-timeline ol { padding: 0 25px 10px; margin: 0; list-style: none; }
 .case-timeline li { display: flex; align-items: flex-start; gap: 17px; padding: 5px 0 23px; }
@@ -772,6 +787,8 @@ html { scroll-behavior: smooth; scroll-padding-top: 100px; }
 }
 @media (max-width: 767px) {
   html { scroll-padding-top: 20px; }
+  .share-options { grid-template-columns: 1fr; }
+  .share-body { padding: 20px; }
   .landing-container { width: calc(100% - 40px); }
   .nav-inner { min-height: 80px; gap: 10px; }
   .nav-inner .brand-logo { gap: 8px; }
