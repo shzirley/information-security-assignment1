@@ -228,6 +228,8 @@ Pembagian tugas per anggota (ID tugas, Output, DoD, branch, dan contoh issue) ad
 | E09 | Isi tabel `share_requests` dan `share_items` di SQLite | Screenshot ciphertext |
 | E10 | Restart server; permintaan dan statusnya tetap ada | Screenshot sebelum dan sesudah |
 
+Hasil dan screenshot setiap langkah: [VERIFICATION.md](VERIFICATION.md).
+
 ---
 
 ## 4. Urutan kerja

@@ -1,8 +1,8 @@
 # VELTRIX BankKYC
 
-**A KYC onboarding application with encrypted evidence storage and a cryptography laboratory.**
+**A KYC onboarding application with encrypted evidence storage, consent-based data sharing, and a cryptography laboratory.**
 
-VELTRIX models the document preparation and review stages of opening a bank account. Applicants assemble a personal profile, identity scan, supporting office document, and verification video into one application. Reviewers inspect documents and record decisions on assigned applications, administrators manage assignments, and evaluators compare cryptographic algorithms using separate synthetic fixtures.
+VELTRIX models the document preparation and review stages of opening a bank account. Applicants assemble a personal profile, identity scan, supporting office document, and verification video into one application, and can share selected documents with another applicant after approving a request. Reviewers inspect documents and record decisions on assigned applications, administrators manage assignments, and evaluators compare cryptographic algorithms using separate synthetic fixtures.
 
 This is an **Information Security group assignment using synthetic data only**. Decisions represent an academic onboarding workflow; they do not open a bank account or establish an identity's authenticity. DES and RC4 are included for academic comparison and are not recommended for protecting real-world banking data.
 
@@ -19,6 +19,7 @@ The Next.js frontend connects to the **FastAPI BankKYC v2 backend in live mode**
 | Access control | Session authentication, roles, ownership, reviewer assignment, and application-state checks |
 | Stored evidence | Versioned encrypted envelopes with authenticated recovery and per-object keys |
 | Document review | Assigned reviewer preview, versioned checklists, encrypted local analysis |
+| Data sharing (Assignment 2) | Request and approval between applicants, AES-256-GCM share keys delivered as RSA-OAEP packages, browser-side private keys |
 | Laboratory | Actual measurements, raw samples, result history, and CSV exports |
 | Public deployment | Being prepared; no verified public endpoint is documented yet |
 
@@ -55,7 +56,7 @@ Access combines **RBAC with ownership, assignment, and state-based checks**. A r
 
 | Role | Responsibilities | Access boundary |
 | --- | --- | --- |
-| Applicant | Create applications, complete evidence, submit revisions, track decisions, retrieve versions | Own applications and evidence only |
+| Applicant | Create applications, complete evidence, submit revisions, track decisions, retrieve versions; request, approve, and revoke data sharing | Own applications and evidence, plus copies another applicant approved for them |
 | Reviewer | Inspect submitted documents, record checks, and request revision or decide | Assigned active cases, latest evidence previews and four profile fields |
 | Administrator | Assign or reassign a reviewer before review begins | Assignment metadata; no applicant plaintext or application decisions |
 | Evaluator | Run benchmarks and recovery checks; view and export results | Isolated synthetic fixtures and the evaluator's own laboratory results |
@@ -125,6 +126,22 @@ flowchart LR
 Passwords use **Argon2id hashing**, and session tokens are stored as hashes. They are not recoverable encrypted evidence. Minimal operational metadata is also separate from the encrypted private payload.
 
 This implements the current academic baseline. Layering DES and RC4 does not establish greater security than authenticated AES alone. The assignment's interpretation of layered versus independently stored cipher representations remains a decision to confirm with the lecturer.
+
+## Data sharing between applicants
+
+Assignment 2 adds consent-based sharing. In the demo scenario, the chair of a student organisation (Andi) needs to check the treasurer's (Budi) documents before they open an organisation account together.
+
+1. **Andi creates an RSA-2048 key pair in the browser.** The public key is registered with the server; the private key is downloaded as a `.pem` file and never sent to the server or kept in browser storage.
+2. **Andi requests** selected documents from Budi.
+3. **Budi approves.** The server creates a fresh AES-256-GCM share key, encrypts copies of the chosen documents with it, and wraps a stored copy of the key with the KEK.
+4. **The key travels out of band.** The share key is encrypted with Andi's public key (RSA-OAEP-256) as a `VELTRIX-SHARE-1.…` package, which Budi sends to Andi by email.
+5. **Andi opens the documents.** The browser decrypts the package with Andi's private key and sends only the share key; the server opens the copies with that key, not with its stored copy.
+
+Access lasts 7 days and Budi can revoke it at any time; revocation and expiry delete the copies and the wrapped key. A third party who obtains the email cannot use it without Andi's private key, and another account is refused even with the correct share key.
+
+![Budi's encrypted key package, ready to send by email](docs/assignment-2/screenshots/04-budi-package.png)
+
+See the [scenario](docs/assignment-2/ASSIGNMENT_2_SCENARIO_OPTIONS.md), [design and tests](docs/assignment-2/ASSIGNMENT_2_IMPLEMENTATION_PLAN.md), [end-to-end evidence with screenshots](docs/assignment-2/VERIFICATION.md), and [security report](docs/verification/ASSIGNMENT_2_SECURITY_REPORT.md).
 
 ## Cryptography laboratory
 
@@ -208,8 +225,10 @@ For MySQL setup, migrations, backup, and restore, follow the [backend guide](bac
 Run backend tests from `backend/` using its virtual environment:
 
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/test_bankkyc.py tests/test_api.py tests/test_crypto.py -q
+.venv\Scripts\python.exe -m pytest -q
 ```
+
+To run only the Assignment 2 sharing tests, pass `tests/test_sharing_api.py tests/test_assignment2_security.py`.
 
 On Linux/macOS, use `.venv/bin/python`. Tests use temporary SQLite databases by default. Optional MySQL tests require a **disposable test database**, because the suite resets its schema.
 
@@ -230,7 +249,7 @@ npm.cmd run build
 
 Use `npm` on Linux/macOS. The Playwright suite in `frontend/tests/flows.spec.ts` targets **browser mocks**, a mock-mode production build, and Microsoft Edge on port 3100. Run it in an isolated checkout/configuration; its results do not verify live cryptography.
 
-Recorded checks include **65 passing backend tests with SQLite**, live HTTP integration, and applicant login/dashboard/logout in a real browser. An earlier MySQL 8.0.46 run recorded **36 passed and one SQLite-specific test skipped**. These results have stated environments and coverage; they do not verify every deployment. See [verification results and limitations](docs/verification/VERIFIKASI.md).
+The full backend suite recorded **114 passed** with SQLite on 26 November 2026, including 11 Assignment 2 sharing tests; the Assignment 2 flow was also exercised end to end in a real browser ([evidence](docs/assignment-2/VERIFICATION.md)). Earlier recorded checks include live HTTP integration and applicant login/dashboard/logout in a real browser. An earlier MySQL 8.0.46 run recorded **36 passed and one SQLite-specific test skipped**. These results have stated environments and coverage; they do not verify every deployment. See [verification results and limitations](docs/verification/VERIFIKASI.md).
 
 ## Deployment status
 
@@ -245,13 +264,13 @@ Deployment requires stable server-side keys, a persistent database, HTTPS, secur
 ```text
 frontend/
   src/app/                 Public pages and role-specific routes
-  src/features/kyc/        Applications, evidence wizard, review, assignment, lab
-  src/lib/                 Domain types, validation, API transport and contracts
+  src/features/kyc/        Applications, evidence wizard, review, assignment, lab, data sharing
+  src/lib/                 Domain types, validation, API transport, contracts, browser RSA (sharing-crypto.ts)
   src/mocks/               Isolated browser-test fixtures
   tests/                   Playwright interface tests
 backend/
   app/server.py            Active FastAPI entry point
-  kyc/                     BankKYC API, authorization, storage, crypto and lab
+  kyc/                     BankKYC API, authorization, storage, crypto, sharing crypto and lab
   migrations/              Alembic schema migrations
   fixtures/                Synthetic laboratory assets
   scripts/                 Live integration checks and support scripts
@@ -262,8 +281,11 @@ docs/
   prd/                     Product, frontend, and backend requirements
   design/                  Brand guidelines and component provenance
   guides/                  Setup and troubleshooting
-  verification/            Test results, UI audit, and security upgrade record
+  verification/            Test results, UI audit, security upgrade, Assignment 2 security report
   references/              Assignment images and original brand board
+  assignment-1/            Revision plan, handoffs, and E2E evidence
+  assignment-2/            Key-management scenario, plan, tasks, and E2E evidence
+  assignment-3/            Digital-signature plan and task distribution
 launcher.py                Local setup and service startup
 start.bat / start.sh       Platform-specific launcher entry points
 ```
@@ -283,5 +305,8 @@ Start with the [documentation index](docs/README.md) for the recommended reading
 | [Frontend guide](frontend/README.md) | Setup, live transport, and mock-test scope |
 | [Verification report](docs/verification/VERIFIKASI.md) | Actual test results, environments, and remaining coverage |
 | [Security Lead Handoff](docs/assignment-1/handoffs/HANDOFF_MALEKA_TO_TEAM.md) | Cryptography implementation, in-memory preview, document verification, and lab benchmark |
+| [Assignment 2 evidence](docs/assignment-2/VERIFICATION.md) | Key-management and data-sharing E2E results with screenshots |
+| [Assignment 2 security report](docs/verification/ASSIGNMENT_2_SECURITY_REPORT.md) | Hybrid encryption design, threat model, and security test results |
+| [Assignment 3 plan](docs/assignment-3/ASSIGNMENT_3_IMPLEMENTATION_PLAN.md) | Digital signatures for KYC PDFs: design, tests, and open decisions (not yet implemented) |
 
 The coursework submission also requires meaningful Git history, a report of at most two A4 pages explaining the scenario and design decisions, interpreted experimental results, and the actual AI conversation link and screenshot when AI assistance is used.

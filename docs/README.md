@@ -8,6 +8,7 @@ Specifications, brand references, setup guides, and verification records for VEL
 2. Follow the [running guide](guides/PANDUAN_MENJALANKAN.md) to start the application locally.
 3. Use the [frontend PRD](prd/VELTRIX_BankKYC_FE_PRD.md) and [backend PRD](prd/VELTRIX_BankKYC_BE_PRD.md) together when changing screens, permissions, or API contracts.
 4. Check the [verification report](verification/VERIFIKASI.md) for measured results, test environments, and remaining coverage. Requirements and historical audit records are not proof of current implementation.
+5. For data sharing (Assignment 2), read the [scenario](assignment-2/ASSIGNMENT_2_SCENARIO_OPTIONS.md), then the [end-to-end evidence](assignment-2/VERIFICATION.md).
 
 ## Documentation map
 
@@ -16,10 +17,11 @@ Specifications, brand references, setup guides, and verification records for VEL
 | `prd/` | [Product](prd/VELTRIX_BankKYC_PRD.md), [frontend](prd/VELTRIX_BankKYC_FE_PRD.md), [backend](prd/VELTRIX_BankKYC_BE_PRD.md) | Scenario, behavior, contracts, acceptance criteria, and technical decisions |
 | `design/` | [Brand guidelines](design/VELTRIX_GSM_v0.1.md), [component references](design/REFERENCES.md) | Existing logo, colors, typography, and reference provenance |
 | `guides/` | [Local setup and troubleshooting](guides/PANDUAN_MENJALANKAN.md), [cloud deployment](guides/DEPLOYMENT.md) | Running, deploying, and operating the application |
-| `verification/` | [Implementation verification](verification/VERIFIKASI.md), [UI audit](verification/ANTISLOP_QA.md), [Next.js security upgrade](verification/SECURITY_UPGRADE.md) | Dated checks with their original scope and limitations |
+| `verification/` | [Implementation verification](verification/VERIFIKASI.md), [UI audit](verification/ANTISLOP_QA.md), [Next.js security upgrade](verification/SECURITY_UPGRADE.md), [Assignment 2 security report](verification/ASSIGNMENT_2_SECURITY_REPORT.md) | Dated checks with their original scope and limitations |
 | `references/` | [Assignment image 1](references/ki1.jpeg), [assignment image 2](references/ki2.jpeg), [brand identity board](<references/Veltrix Secure Brand Identity Board.png>) | Original materials supplied for this project |
 | `assignment-1/` | [Revision task distribution](assignment-1/VELTRIX_Assignment1_Revision_Task_Distribution.md), [acceptance checklist](assignment-1/REVISION_ACCEPTANCE_CHECKLIST.md), [OCR evaluation](assignment-1/OCR_EVALUATION.md), [Jorell work notes](assignment-1/JORELL_WORK_INSTRUCTIONS_AND_REFERENCE.md), handoffs from [Jahhaza](assignment-1/handoffs/HANDOFF_JAHHAZA_TO_TEAM.md), [Jorell](assignment-1/handoffs/HANDOFF_JORELL_TO_TEAM.md), and [Maleka](assignment-1/handoffs/HANDOFF_MALEKA_TO_TEAM.md) | Assignment 1 revision: plan, team handoffs, and evidence |
-| `assignment-2/` | [Scenario](assignment-2/ASSIGNMENT_2_SCENARIO_OPTIONS.md), [implementation plan](assignment-2/ASSIGNMENT_2_IMPLEMENTATION_PLAN.md), [task distribution](assignment-2/ASSIGNMENT_2_TASK_DISTRIBUTION.md), [key management concepts](assignment-2/ASSIGNMENT_2_KEY_MANAGEMENT.md) | Assignment 2 (key management): scenario, design, and team tasks |
+| `assignment-2/` | [Scenario](assignment-2/ASSIGNMENT_2_SCENARIO_OPTIONS.md), [implementation plan](assignment-2/ASSIGNMENT_2_IMPLEMENTATION_PLAN.md), [task distribution](assignment-2/ASSIGNMENT_2_TASK_DISTRIBUTION.md), [key management concepts](assignment-2/ASSIGNMENT_2_KEY_MANAGEMENT.md), [E2E evidence with screenshots](assignment-2/VERIFICATION.md) | Assignment 2 (key management): scenario, design, team tasks, and evidence |
+| `assignment-3/` | [Implementation plan](assignment-3/ASSIGNMENT_3_IMPLEMENTATION_PLAN.md), [task distribution](assignment-3/ASSIGNMENT_3_TASK_DISTRIBUTION.md) | Assignment 3 (digital signatures for KYC PDFs): proposed design and team tasks; not yet implemented |
 
 ## Guides beside the code
 
@@ -30,4 +32,4 @@ Specifications, brand references, setup guides, and verification records for VEL
 
 Command examples and inline source paths refer to the repository root unless a document explicitly names another working directory. Moving a guide does not change where its commands should run. Relative links resolve from the document containing them.
 
-Keep new requirements in `prd/`, brand decisions in `design/`, operational instructions in `guides/`, dated test/audit records in `verification/`, original reference materials in `references/`, and assignment-specific plans, handoffs, and evidence in `assignment-1/` or `assignment-2/`. Keep executable scripts, application assets, and configuration with their owning code.
+Keep new requirements in `prd/`, brand decisions in `design/`, operational instructions in `guides/`, dated test/audit records in `verification/`, original reference materials in `references/`, and assignment-specific plans, handoffs, and evidence in `assignment-1/`, `assignment-2/`, or `assignment-3/`. Keep executable scripts, application assets, and configuration with their owning code.

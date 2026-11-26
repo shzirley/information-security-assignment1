@@ -56,8 +56,10 @@ cd backend
 | `test_at_rest_key_wrapping_and_zero_plaintext_audit` | Audit DB: `wrapped_share_key != raw_key` & nol plaintext PII di `share_items` | **PASSED** |
 | `test_cross_item_aad_substitution_attack_rejected` | Penukaran ciphertext antar-item ditolak oleh AES-GCM AAD (`403`) | **PASSED** |
 | `test_key_rotation_invalidates_old_private_key_on_reissued_package` | Rotasi kunci RSA membuat Private Key lama tidak bisa membuka paket baru | **PASSED** |
+| `test_draft_case_can_be_shared` | Pengajuan yang masih draf bisa dibagikan (ketua dan bendahara saling cek sebelum mengirim) | **PASSED** |
+| `test_active_key_index_is_sqlite_only` | Indeks "satu kunci aktif per user" hanya dibuat di SQLite, agar rotasi kunci tetap jalan di MySQL | **PASSED** |
 
-**Ringkasan:** **9 passed, 0 failed**.
+**Ringkasan (26 November 2026):** **11 passed, 0 failed**. Seluruh tes backend (Assignment 1 + 2): **114 passed**.
 
 ### B. Simulasi End-to-End CLI (`scripts/demo_assignment2_sharing.py`)
 Perintah:
@@ -71,3 +73,4 @@ Seluruh 6 tahap simulasi (Registrasi & Keypair RSA → Request Akses → Approve
 ### C. Verifikasi Frontend Next.js
 * `npm.cmd run typecheck` (`tsc --noEmit`): **PASSED (0 errors)**.
 * Halaman baru: `/applicant/sharing` (`frontend/src/features/kyc/sharing-workspace.tsx`) + modul Web Crypto (`frontend/src/lib/sharing-crypto.ts`).
+* Alur lengkap E01–E10 di browser sungguhan, beserta screenshot: [VERIFICATION.md](../assignment-2/VERIFICATION.md).
