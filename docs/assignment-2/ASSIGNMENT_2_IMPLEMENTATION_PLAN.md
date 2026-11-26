@@ -221,7 +221,7 @@ Pembagian tugas per anggota (ID tugas, Output, DoD, branch, dan contoh issue) ad
 | E02 | Budi sudah punya pengajuan berisi profil, KTP, dan formulir | Screenshot detail pengajuan |
 | E03 | Andi meminta akses ke Budi untuk "Pengajuan rekening HIMA Informatika" | Screenshot tab Permintaan keluar (`PENDING`) |
 | E04 | Budi mencocokkan sidik jari kunci Andi, lalu menyetujui | Screenshot modal Setujui |
-| E05 | Budi menyalin paket dan mengirimkannya lewat WA | Screenshot chat WA |
+| E05 | Budi mengirim paket ke Andi lewat email (tombol **Kirim via Email**) | Screenshot email di inbox Andi |
 | E06 | Andi menempel paket, memilih private key, dan membuka KTP Budi | Screenshot pratinjau |
 | E07 | Akun Citra (pihak ketiga) mencoba memakai paket yang sama | Screenshot penolakan |
 | E08 | Budi mencabut akses; Andi mencoba membuka lagi | Screenshot penolakan |
@@ -271,5 +271,5 @@ flowchart LR
 - Server dipercaya: server memegang kunci berbagi terbungkus KEK dan sempat melihat isi dokumen saat mengenkripsi ulang. Yang dilindungi asimetris adalah **kanal pengiriman kunci**, bukan server dari dirinya sendiri.
 - Kalau file private key Andi hilang, Andi harus membuat kunci baru dan Budi mengirim ulang paket.
 - Pencocokan sidik jari kunci bergantung pada user yang benar-benar mengeceknya.
-- Pengiriman lewat WA adalah analogi *out-of-band delivery*; bank sungguhan memakai HSM/KMS dan sertifikat.
+- Pengiriman lewat email adalah analogi *out-of-band delivery*. Email sengaja dipilih karena tidak terenkripsi end-to-end, sehingga keamanan paket hanya bergantung pada RSA-OAEP, bukan pada jalurnya; bank sungguhan memakai HSM/KMS dan sertifikat.
 - Semua data adalah data sintetis.
