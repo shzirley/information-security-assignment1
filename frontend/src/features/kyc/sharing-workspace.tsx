@@ -422,7 +422,10 @@ export function SharingWorkspace() {
                   </div>
                   <div className="field">
                     <label htmlFor="share-purpose">Tujuan permintaan</label>
-                    <input id="share-purpose" type="text" placeholder="Minimal 10 karakter" value={purpose} onChange={e => setPurpose(e.target.value)} minLength={10} maxLength={300} required disabled={!serverKey || createRequestMutation.isPending} />
+                    <input id="share-purpose" type="text" placeholder="Contoh: Pengajuan rekening HIMA: cek data bendahara" value={purpose} onChange={e => setPurpose(e.target.value)} minLength={10} maxLength={300} required aria-describedby="share-purpose-help" disabled={!serverKey || createRequestMutation.isPending} />
+                    <p id="share-purpose-help" className="small-note" aria-live="polite">
+                      Alasan kamu meminta dokumen, bukan username. Minimal 10 karakter{purpose.trim().length < 10 ? ` (${purpose.trim().length}/10)` : ''}.
+                    </p>
                   </div>
                 </div>
                 <fieldset className="share-fieldset">
