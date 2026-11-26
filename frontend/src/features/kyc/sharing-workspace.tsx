@@ -275,6 +275,13 @@ export function SharingWorkspace() {
   const incoming = incomingQuery.data?.items ?? [];
   const outgoing = outgoingQuery.data?.items ?? [];
   const itemList = (items: string[]) => items.map(i => ITEM_LABELS[i] ?? i).join(', ');
+  // Say why "Kirim permintaan" is disabled instead of leaving the user guessing.
+  const isSelfRequest = Boolean(username) && targetOwner.trim().toLowerCase() === username.toLowerCase();
+  const requestIssue = !targetOwner.trim() ? 'Isi username pemilik data.'
+    : isSelfRequest ? 'Tidak bisa meminta data milikmu sendiri.'
+    : purpose.trim().length < 10 ? 'Tujuan permintaan minimal 10 karakter.'
+    : selectedRequestItems.length === 0 ? 'Pilih minimal satu dokumen.'
+    : null;
 
   if (myKeyQuery.isPending || incomingQuery.isPending || outgoingQuery.isPending) {
     return <LoadingState label="Memuat berbagi data…" />;
@@ -418,7 +425,8 @@ export function SharingWorkspace() {
                 <div className="form-grid">
                   <div className="field">
                     <label htmlFor="share-owner-username">Username pemilik data</label>
-                    <input id="share-owner-username" type="text" placeholder="Contoh: demo_user" value={targetOwner} onChange={e => setTargetOwner(e.target.value)} required disabled={!serverKey || createRequestMutation.isPending} />
+                    <input id="share-owner-username" type="text" placeholder="Contoh: demo_user" value={targetOwner} onChange={e => setTargetOwner(e.target.value)} required aria-invalid={isSelfRequest} aria-describedby="share-owner-error" disabled={!serverKey || createRequestMutation.isPending} />
+                    <p id="share-owner-error" className="field-error">{isSelfRequest ? 'Ini akunmu sendiri. Isi username pemohon lain.' : ''}</p>
                   </div>
                   <div className="field">
                     <label htmlFor="share-purpose">Tujuan permintaan</label>
@@ -440,7 +448,8 @@ export function SharingWorkspace() {
                   </div>
                 </fieldset>
                 <div className="form-actions">
-                  <Button type="submit" busy={createRequestMutation.isPending} disabled={!serverKey || !targetOwner.trim() || purpose.trim().length < 10 || selectedRequestItems.length === 0}>
+                  {serverKey && requestIssue && <p className="small-note share-hint" role="status">{requestIssue}</p>}
+                  <Button type="submit" busy={createRequestMutation.isPending} disabled={!serverKey || Boolean(requestIssue)}>
                     <Send size={16} aria-hidden="true" />Kirim permintaan
                   </Button>
                 </div>

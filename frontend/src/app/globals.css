@@ -692,6 +692,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 100px; }
 .share-panel .evidence-group:first-of-type { border-top: 0; }
 .share-panel .evidence-record p + p { margin-top: 5px; color: var(--muted); }
 .share-body { padding: 24px; }
+.share-hint { margin: 0 auto 0 0; align-self: center; color: var(--muted); }
 .share-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .share-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .share-fieldset .checkbox-field small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
