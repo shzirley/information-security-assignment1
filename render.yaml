@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: veltrix-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: VELTRIX_KEK_V1_BASE64
+        generateValue: true
+      - key: VELTRIX_AUTH_SECRET_BASE64
+        generateValue: true
+      - key: KYC_DATABASE_URL
+        sync: false
+      - key: KYC_MYSQL_CA_PEM
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

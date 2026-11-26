@@ -236,6 +236,8 @@ Recorded checks include **65 passing backend tests with SQLite**, live HTTP inte
 
 Local live operation is verified. A public deployment is being prepared. The proposed free-hosting arrangement separates the Next.js frontend, FastAPI service, and persistent MySQL database; it has not yet been verified online.
 
+The [deployment guide](docs/guides/DEPLOYMENT.md) covers Vercel Hobby for the web, Render Free for FastAPI/FFmpeg, and Aiven MySQL Free for persistent storage, including configuration, operator-account provisioning, and public verification. Hosting definitions and startup helpers are prepared locally; the Docker build and public deployment remain unverified.
+
 Deployment requires stable server-side keys, a persistent database, HTTPS, secure cookies, explicit allowed origins, and `ffprobe`. Upload limits, memory usage, cold starts, and benchmark execution must be checked on the selected host. An ephemeral server filesystem is not a persistent database.
 
 ## Repository map
