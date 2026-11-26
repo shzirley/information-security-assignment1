@@ -20,3 +20,4 @@ __pycache__/
 inference/
 backend/temp_pytest/
 temp_pytest/
+report/
