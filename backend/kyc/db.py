@@ -157,3 +157,57 @@ share_items = Table('share_items', metadata,
     Column('nonce', LargeBinary(12), nullable=False), Column('ciphertext', blob, nullable=False),
     CheckConstraint("kind IN ('profile','identity','document','video','kk')", name='valid_share_item_kind'),
     UniqueConstraint('request_id', 'kind', name='unique_share_item_kind'))
+
+# Assignment 3: signature metadata and encrypted object references. Private
+# signing keys never enter these tables.
+user_signing_keys = Table('user_signing_keys', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('user_id', String(36), ForeignKey('kyc_users.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('public_key_pem', Text, nullable=False),
+    Column('fingerprint', String(64), nullable=False),
+    Column('certificate_der', blob, nullable=False),
+    Column('cert_serial', String(40), unique=True, nullable=False),
+    Column('cert_expires_at', String(40), nullable=False),
+    Column('created_at', String(40), nullable=False),
+    Column('revoked_at', String(40)), Column('revoke_reason', String(100)))
+Index('uq_user_signing_keys_active', user_signing_keys.c.user_id, unique=True,
+      sqlite_where=user_signing_keys.c.revoked_at.is_(None)).ddl_if(dialect='sqlite')
+
+signing_key_challenges = Table('signing_key_challenges', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('user_id', String(36), ForeignKey('kyc_users.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('challenge', LargeBinary(32), nullable=False),
+    Column('expires_at', String(40), nullable=False), Column('used_at', String(40)))
+
+pki_authority = Table('pki_authority', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('certificate_der', blob, nullable=False),
+    Column('wrapped_private_key', blob, nullable=False),
+    Column('wrap_nonce', LargeBinary(12), nullable=False),
+    Column('wrap_tag', LargeBinary(16), nullable=False),
+    Column('created_at', String(40), nullable=False))
+
+signature_sessions = Table('signature_sessions', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('application_id', String(36), ForeignKey('applications.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('evidence_id', String(36), ForeignKey('evidence_versions.id', ondelete='CASCADE'), nullable=False),
+    Column('signer_id', String(36), ForeignKey('kyc_users.id'), nullable=False),
+    Column('signing_key_id', String(36), ForeignKey('user_signing_keys.id'), nullable=False),
+    Column('case_version', Integer, nullable=False),
+    Column('prepared_object_id', String(36), ForeignKey('encrypted_objects.id', ondelete='SET NULL'), unique=True),
+    Column('signed_attrs', blob, nullable=False),
+    Column('byte_range', String(100), nullable=False),
+    Column('digest', String(64), nullable=False),
+    Column('created_at', String(40), nullable=False),
+    Column('expires_at', String(40), nullable=False), Column('used_at', String(40)))
+
+document_signatures = Table('document_signatures', metadata,
+    Column('id', String(36), primary_key=True),
+    Column('application_id', String(36), ForeignKey('applications.id', ondelete='CASCADE'), nullable=False, index=True),
+    Column('evidence_id', String(36), ForeignKey('evidence_versions.id', ondelete='CASCADE'), nullable=False, unique=True),
+    Column('signer_id', String(36), ForeignKey('kyc_users.id'), nullable=False),
+    Column('signing_key_id', String(36), ForeignKey('user_signing_keys.id'), nullable=False),
+    Column('signed_object_id', String(36), ForeignKey('encrypted_objects.id', ondelete='CASCADE'), nullable=False, unique=True),
+    Column('signed_sha256', String(64), nullable=False),
+    Column('signed_at', String(40), nullable=False),
+    Column('last_status', String(24)), Column('last_verified_at', String(40)))

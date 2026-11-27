@@ -1,10 +1,11 @@
 import hmac
+from importlib.util import find_spec
 import secrets
 import uuid
 from datetime import datetime, timezone
 from argon2 import PasswordHasher
 from sqlalchemy import select, insert, update, delete
-from .db import key_state, users, sessions
+from .db import key_state, users, sessions, pki_authority
 
 def fingerprints(settings):
     return {'kek_fingerprint': hmac.digest(settings.kek, b'VELTRIX/KEK/check/v1', 'sha256').hex(),
@@ -15,6 +16,13 @@ def initialize_keys(engine, settings):
         if connection.execute(select(key_state.c.id)).first() is None:
             connection.execute(insert(key_state).values(id=1, **fingerprints(settings)))
     check_keys(engine, settings)
+    # The CA is created only during explicit provisioning, never at web startup.
+    if find_spec('kyc.pki') is None:
+        return  # The PKI workstream can be merged after the schema/API.
+    from .pki import create_authority
+    with engine.begin() as connection:
+        if connection.execute(select(pki_authority.c.id).limit(1)).first() is None:
+            connection.execute(insert(pki_authority).values(**create_authority(settings.kek)))
 
 def check_keys(engine, settings):
     with engine.connect() as connection:
