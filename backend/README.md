@@ -1,5 +1,23 @@
 # Backend BankKYC v2
 
+## Assignment 3 — bagian Caca/Jahhaza
+
+Revisi `0004_digital_signature` menambah metadata kunci tanda tangan, challenge PoP, CA, sesi, dan referensi PDF bertanda tangan. Jalankan `python manage.py migrate` pada database Assignment 2 yang telah dicadangkan. Migrasi `0001`–`0003` tidak diubah. SQLite memakai indeks parsial untuk satu kunci aktif per user; MySQL memakai lock baris `kyc_users` saat rotasi. Private key pemohon tidak diterima API; PDF prepared dan signed disimpan sebagai `encrypted_objects` dengan envelope yang sudah ada.
+
+Kontrak endpoint terdapat di [openapi.json](openapi.json). Semua path memakai prefix `/api/v1`; rute mutasi membutuhkan login dan CSRF. `POST /signing-keys/challenge` mengembalikan `challenge_id`, challenge base64 32 byte, `user_id`, dan `expires_at` (5 menit). Browser menandatangani `canonical{user_id, spki_sha256, challenge}`. `PUT /signing-keys/me` menerima `public_key_pem`, `challenge_id`, `pop_signature` base64. `prepare` mengembalikan `session_id`, `signed_attrs_der` base64 (DER tag `0x31`), `digest` hex SHA-256, `byte_range` empat integer, `key_fingerprint`, dan `expires_at` (10 menit). `complete` menerima signature base64 dan mengembalikan `signature_id`, `status`. Verifikasi mengembalikan `status`, `reasons[]`, `signer`, `fingerprint`, `signed_at`; tidak mengembalikan byte dokumen.
+
+Integrasi dengan modul Maleka/Jorell menggunakan fungsi berikut. Modul yang belum digabung menghasilkan respons `503 SIGNING_UNAVAILABLE`; sesi/kunci tidak dibuat diam-diam:
+
+| Modul | Fungsi yang dipanggil backend |
+| --- | --- |
+| `kyc.pki` | `create_authority(kek) -> dict` berisi kolom `pki_authority`; `verify_pop(public_key_pem, user_id, challenge_bytes, signature_bytes) -> bool`; `issue_certificate(public_key_pem, account, authority_row, kek) -> (cert_der, serial, expires_at)` |
+| `kyc.pdf_signing` | `normalize(pdf_bytes) -> bytes`; `assert_signable(pdf_bytes)`; `prepare_incremental_update(pdf_bytes, signer_name, reason) -> (prepared_bytes, byte_range)`; `digest_byte_range(prepared_bytes, byte_range) -> 32-byte digest`; `embed_cms(prepared_bytes, cms_der) -> signed_pdf_bytes` |
+| `kyc.cms` | `build_signed_attrs(digest_bytes, cert_der, signing_time) -> DER bytes` (tag `0x31`); `build_signed_data(signed_attrs_der, signature_bytes, [cert_der, ca_der]) -> CMS DER` |
+| `kyc.signature_rsa` | `verify_pkcs1_v15(public_key_pem, sha256_signed_attrs_bytes, signature_bytes) -> bool` |
+| `kyc.pdf_verify` | `verify_pdf(pdf_bytes, ca_der) -> {status, reasons, signer, fingerprint, signed_at}`. Must enforce all checks in implementation plan §1.7, including exact ByteRange coverage and one signature. |
+
+Pembuatan CA hanya saat `manage.py migrate`, bukan saat request/startup. Bila modul PKI digabung setelah migrasi sudah dijalankan, jalankan `manage.py migrate` sekali lagi untuk membuat CA. `VELTRIX_REQUIRE_SIGNED_FORM=true` mewajibkan formulir terbaru berstatus `VALID` pada submit/resubmit. Nilai default `false` menjaga tes Assignment 1/2; contoh `.env.example` memakai `true`. Berbagi Assignment 2 untuk item `document` mengambil signed PDF terbaru yang valid bila ada.
+
 API FastAPI yang sesuai dengan `frontend/src/lib/kyc-api.ts`. Database permanen SQLite untuk startup lokal, MySQL melalui `mysql+pymysql` untuk deployment terpisah. Alur vault lama berada di `app/main.py` sebagai referensi; entry point `app.server:app` sekarang menggunakan `kyc/main.py`.
 
 Spesifikasi dan kontrak integrasi: [Backend PRD](../docs/prd/VELTRIX_BankKYC_BE_PRD.md). Dokumentasi lengkap: [indeks dokumentasi](../docs/README.md).
