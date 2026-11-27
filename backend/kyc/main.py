@@ -26,10 +26,13 @@ from starlette.datastructures import UploadFile
 from .config import Settings
 from .db import (database, users, sessions, applications, assignments, objects, profiles,
                  evidence, evidence_types, events, limits, security_log, lab_runs, lab_lock,
-                 review_records, document_analyses, user_public_keys, share_requests, share_items)
+                 review_records, document_analyses, user_public_keys, share_requests, share_items,
+                 user_signing_keys, signing_key_challenges, pki_authority, signature_sessions,
+                 document_signatures)
 from .crypto import Envelope, IntegrityFailure, canonical
 from .schemas import (Model, Credentials, Registration, SaveProfile, Action, Assignment, LabInput, ReviewChecks,
-                      PublicKeyRegistration, ShareRequestCreate, ShareApprove, ShareOpen)
+                      PublicKeyRegistration, ShareRequestCreate, ShareApprove, ShareOpen,
+                      SigningKeyRegistration, CompleteSignature)
 from .sharing_crypto import (public_key_details, package_key, wrap_key, unwrap_key,
                              encrypt_item, decrypt_item)
 from .analysis_worker import AnalysisWorker
@@ -65,7 +68,8 @@ class BodyLimit:
         headers = dict(scope['headers'])
         if headers.get(b'content-encoding', b'identity') != b'identity':
             return await failure(415, 'UNSUPPORTED_ENCODING', 'Content-Encoding tidak didukung.')(scope, receive, send)
-        cap = self.max_bytes if scope['path'].endswith('/evidence') else 128 * 1024
+        cap = (10_000_000 + 65_536 if scope['path'] == PREFIX + '/signatures/verify'
+               else self.max_bytes if scope['path'].endswith('/evidence') else 128 * 1024)
         try:
             declared = int(headers.get(b'content-length', b'0'))
             if declared < 0:
@@ -162,6 +166,13 @@ def create_app(settings: Settings):
     async def api_error(request, exc):
         if exc.status in (403, 404):
             audit('access_denied', getattr(request.state, 'actor_id', None), outcome='denied')
+        path = request.url.path
+        actor_id = getattr(request.state, 'actor_id', None)
+        if actor_id and (path.endswith('/signatures/prepare') or
+                path.endswith('/complete') or path.startswith(PREFIX + '/signing-keys/')):
+            audit('SIGN_REJECTED', actor_id, outcome='failed')
+        elif actor_id and path.endswith('/verify') and '/signatures/' in path:
+            audit('SIG_VERIFY_FAILED', actor_id, outcome='failed')
         return failure(exc.status, exc.code, exc.message, exc.fields)
     @app.exception_handler(RequestValidationError)
     async def validation_error(_, exc):
@@ -730,6 +741,14 @@ def create_app(settings: Settings):
                 slots = current_evidence(connection, case_id)
                 if latest_profile(connection, row) is None or not REQUIRED <= slots.keys() or body.synthetic_acknowledged is not True:
                     raise ApiFailure(422, 'CASE_INCOMPLETE', 'Lengkapi profil, KTP dummy, formulir pembukaan rekening, video, dan konfirmasi data sintetis.')
+                if settings.require_signed_form:
+                    form = slots['account_opening_form']
+                    valid = connection.execute(select(document_signatures.c.id).where(
+                        document_signatures.c.evidence_id == form['id'],
+                        document_signatures.c.application_id == case_id,
+                        document_signatures.c.last_status == 'VALID').limit(1)).first()
+                    if valid is None:
+                        raise ApiFailure(422, 'SIGNED_FORM_REQUIRED', 'Formulir PDF terbaru harus bertanda tangan valid sebelum dikirim.')
                 row['synthetic_acknowledged'] = True
             decision = body.action in ('request-revision', 'accept', 'reject')
             if decision:
@@ -756,6 +775,382 @@ def create_app(settings: Settings):
     def active_public_key(connection, user_id):
         return connection.execute(select(user_public_keys).where(
             user_public_keys.c.user_id == user_id, user_public_keys.c.revoked_at.is_(None))).mappings().first()
+
+    # Assignment 3 key registration. PKI primitives are supplied by Maleka's
+    # module; this layer owns authorization, challenge lifetime and persistence.
+    def active_signing_key(connection, user_id):
+        return connection.execute(select(user_signing_keys).where(
+            user_signing_keys.c.user_id == user_id,
+            user_signing_keys.c.revoked_at.is_(None))).mappings().first()
+
+    def signing_key_view(row):
+        return {'id': row['id'], 'fingerprint': row['fingerprint'],
+                'cert_serial': row['cert_serial'], 'expires_at': row['cert_expires_at'],
+                'created_at': row['created_at'],
+                'revoked_at': row['revoked_at'], 'revoke_reason': row['revoke_reason']}
+
+    def certificate_pem(cert_der):
+        encoded = base64.b64encode(cert_der).decode('ascii')
+        return '-----BEGIN CERTIFICATE-----\n' + '\n'.join(encoded[i:i+64]
+            for i in range(0, len(encoded), 64)) + '\n-----END CERTIFICATE-----\n'
+
+    @app.get(PREFIX + '/signing-keys/me')
+    def get_signing_key(account=Depends(user)):
+        role(account, 'applicant')
+        with engine.connect() as connection:
+            rows = connection.execute(select(user_signing_keys).where(
+                user_signing_keys.c.user_id == account['id']).order_by(
+                user_signing_keys.c.created_at.desc())).mappings().all()
+        active = next((row for row in rows if row['revoked_at'] is None), None)
+        return {'active': {**signing_key_view(active),
+                'certificate_pem': certificate_pem(active['certificate_der'])} if active else None,
+                'history': [signing_key_view(row) for row in rows if row['revoked_at']]}
+
+    @app.post(PREFIX + '/signing-keys/challenge', status_code=201)
+    def create_signing_challenge(account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('sign_challenge', account['id'], 10, 300)
+        challenge_id, challenge = uid(), secrets.token_bytes(32)
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        with engine.begin() as connection:
+            connection.execute(insert(signing_key_challenges).values(
+                id=challenge_id, user_id=account['id'], challenge=challenge,
+                expires_at=expiry, used_at=None))
+        return {'challenge_id': challenge_id,
+                'challenge': base64.b64encode(challenge).decode('ascii'),
+                'user_id': account['id'], 'expires_at': expiry}
+
+    @app.put(PREFIX + '/signing-keys/me')
+    def register_signing_key(body: SigningKeyRegistration, account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('sign_register', account['id'], 10, 300)
+        from Crypto.PublicKey import RSA
+        try:
+            from .pki import verify_pop, issue_certificate
+            if not body.public_key_pem.startswith('-----BEGIN PUBLIC KEY-----\n'):
+                raise ValueError('SPKI PEM required')
+            public = RSA.import_key(body.public_key_pem)
+            if public.has_private() or public.size_in_bits() < 3072 or public.e != 65537:
+                raise ValueError('Invalid signing public key')
+            canonical_pem = public.export_key(format='PEM').decode('ascii')
+            if canonical_pem.strip() != body.public_key_pem.strip():
+                raise ValueError('Noncanonical public key')
+            pop = base64.b64decode(body.pop_signature, validate=True)
+            if len(pop) != public.size_in_bytes():
+                raise ValueError('Invalid proof size')
+        except ImportError as exc:
+            raise ApiFailure(503, 'SIGNING_UNAVAILABLE', 'Modul PKI belum tersedia.') from exc
+        except (ValueError, binascii.Error, TypeError) as exc:
+            raise ApiFailure(422, 'INVALID_SIGNING_KEY', 'Kunci publik atau bukti kepemilikan tidak valid.') from exc
+        fingerprint = hashlib.sha256(public.export_key(format='DER')).hexdigest()
+        with engine.begin() as connection:
+            # Serializes rotation on MySQL, where partial unique indexes are absent.
+            connection.execute(select(users.c.id).where(users.c.id == account['id']).with_for_update()).first()
+            challenge = connection.execute(select(signing_key_challenges).where(
+                signing_key_challenges.c.id == body.challenge_id,
+                signing_key_challenges.c.user_id == account['id']).with_for_update()).mappings().first()
+            if (challenge is None or challenge['used_at'] is not None or
+                    challenge['expires_at'] <= now()):
+                raise ApiFailure(422, 'INVALID_CHALLENGE', 'Tantangan sudah kedaluwarsa atau digunakan.')
+            if not verify_pop(canonical_pem, account['id'], challenge['challenge'], pop):
+                raise ApiFailure(422, 'INVALID_PROOF', 'Bukti kepemilikan kunci tidak valid.')
+            authority = connection.execute(select(pki_authority).limit(1)).mappings().first()
+            if authority is None:
+                raise ApiFailure(503, 'CA_UNAVAILABLE', 'Sertifikat CA belum dibuat; jalankan migrasi/provisioning.')
+            cert_der, serial, expires_at = issue_certificate(canonical_pem, account, authority, settings.kek)
+            stamp = now()
+            old = active_signing_key(connection, account['id'])
+            if old:
+                connection.execute(update(user_signing_keys).where(
+                    user_signing_keys.c.id == old['id']).values(
+                    revoked_at=stamp, revoke_reason='replaced'))
+                connection.execute(insert(security_log).values(id=uid(), at=stamp,
+                    actor_id=account['id'], action='SIGN_KEY_REVOKED', resource_id=old['id'],
+                    outcome='success'))
+            connection.execute(update(signing_key_challenges).where(
+                signing_key_challenges.c.id == body.challenge_id).values(used_at=stamp))
+            key_id = uid()
+            connection.execute(insert(user_signing_keys).values(
+                id=key_id, user_id=account['id'], public_key_pem=canonical_pem,
+                fingerprint=fingerprint, certificate_der=cert_der,
+                cert_serial=serial, cert_expires_at=expires_at, created_at=stamp))
+            connection.execute(insert(security_log).values(id=uid(), at=stamp,
+                actor_id=account['id'], action='SIGN_KEY_REGISTERED', resource_id=key_id,
+                outcome='success'))
+        return {'id': key_id, 'fingerprint': fingerprint, 'cert_serial': serial,
+                'expires_at': expires_at, 'certificate_pem': certificate_pem(cert_der)}
+
+    @app.get(PREFIX + '/pki/ca.pem', response_class=Response)
+    def get_ca_certificate():
+        with engine.connect() as connection:
+            cert = connection.execute(select(pki_authority.c.certificate_der).limit(1)).scalar_one_or_none()
+        if cert is None:
+            raise ApiFailure(503, 'CA_UNAVAILABLE', 'Sertifikat CA belum tersedia.')
+        return Response(certificate_pem(cert), media_type='application/x-pem-file',
+                        headers={'Content-Disposition': 'attachment; filename="veltrix-demo-ca.pem"'})
+
+    def signature_modules():
+        try:
+            from . import cms, pdf_signing, pdf_verify, signature_rsa
+            return cms, pdf_signing, pdf_verify, signature_rsa
+        except ImportError as exc:
+            raise ApiFailure(503, 'SIGNING_UNAVAILABLE', 'Modul tanda tangan PDF belum tersedia.') from exc
+
+    def signature_result(pdf, ca_der, *, expected_owner=None, signed_at=None, signing_key=None):
+        _, _, pdf_verify, _ = signature_modules()
+        result = pdf_verify.verify_pdf(pdf, ca_der)
+        if result['status'] == 'VALID' and signing_key is None:
+            with engine.connect() as connection:
+                known = connection.execute(select(user_signing_keys.c.id).where(
+                    user_signing_keys.c.fingerprint == result['fingerprint']).limit(1)).first()
+            if known is None:
+                result = {**result, 'status': 'VALID_UNTRUSTED',
+                          'reasons': [*result['reasons'], 'Kunci penandatangan tidak terdaftar di VELTRIX.']}
+        if result['status'] == 'VALID' and expected_owner is not None:
+            if signing_key is None or result['fingerprint'] != signing_key['fingerprint'] or signing_key['user_id'] != expected_owner:
+                result = {**result, 'status': 'SIGNER_MISMATCH',
+                          'reasons': [*result['reasons'], 'Kunci penandatangan bukan milik pemohon.']}
+            elif signing_key['revoked_at'] and signed_at and signed_at >= signing_key['revoked_at']:
+                result = {**result, 'status': 'KEY_REVOKED',
+                          'reasons': [*result['reasons'], 'Kunci sudah dicabut saat dokumen ditandatangani.']}
+        return {**result, 'signed_at': signed_at or result.get('signed_at')}
+
+    def signed_record(connection, case_id, sig_id):
+        record = connection.execute(select(document_signatures).where(
+            document_signatures.c.id == sig_id,
+            document_signatures.c.application_id == case_id)).mappings().first()
+        if record is None:
+            raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Tanda tangan tidak ditemukan.')
+        return record
+
+    @app.post(PREFIX + '/applications/{case_id}/evidence/{evidence_id}/signatures/prepare', status_code=201)
+    def prepare_signature(case_id: str, evidence_id: str, account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('sign_prepare', account['id'], 10, 600)
+        cms, pdf_signing, _, _ = signature_modules()
+        with engine.begin() as connection:
+            expired = connection.execute(select(signature_sessions).where(
+                signature_sessions.c.signer_id == account['id'],
+                signature_sessions.c.used_at.is_(None),
+                signature_sessions.c.expires_at <= now()).with_for_update()).mappings().all()
+            for old_session in expired:
+                connection.execute(update(signature_sessions).where(
+                    signature_sessions.c.id == old_session['id']).values(
+                    used_at=now(), prepared_object_id=None))
+                if old_session['prepared_object_id']:
+                    connection.execute(delete(objects).where(objects.c.id == old_session['prepared_object_id']))
+            row = case(connection, case_id, account, owner=True, lock=True)
+            if row['status'] not in EDITABLE:
+                raise ApiFailure(409, 'CASE_READ_ONLY', 'Pengajuan terkunci.')
+            entry = connection.execute(select(evidence).where(
+                evidence.c.id == evidence_id, evidence.c.application_id == case_id,
+                evidence.c.category == 'document')).mappings().first()
+            if entry is None:
+                raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Formulir tidak ditemukan.')
+            latest = current_evidence(connection, case_id).get('account_opening_form')
+            if latest is None or latest['id'] != evidence_id or entry['mime_type'] != 'application/pdf':
+                raise ApiFailure(422, 'PDF_REQUIRED', 'Unggah formulir dalam format PDF terbaru untuk ditandatangani.')
+            if connection.execute(select(document_signatures.c.id).where(
+                    document_signatures.c.evidence_id == evidence_id).limit(1)).first():
+                raise ApiFailure(409, 'ALREADY_SIGNED', 'Formulir ini sudah ditandatangani.')
+            key = active_signing_key(connection, account['id'])
+            if key is None:
+                raise ApiFailure(409, 'SIGNING_KEY_REQUIRED', 'Buat kunci tanda tangan dahulu.')
+            _, source = open_object(connection, entry['object_id'], row,
+                kind='evidence', category='document', version=entry['version'])
+            try:
+                normalized = pdf_signing.normalize(source)
+                pdf_signing.assert_signable(normalized)
+                prepared, byte_range = pdf_signing.prepare_incremental_update(
+                    normalized, account['display_name'], 'Pernyataan kebenaran data KYC')
+                digest = pdf_signing.digest_byte_range(prepared, byte_range)
+                signed_attrs = cms.build_signed_attrs(digest, key['certificate_der'], datetime.now(timezone.utc))
+            except ValueError as exc:
+                raise ApiFailure(422, 'PDF_NOT_SIGNABLE', str(exc)) from exc
+            session_id = uid()
+            object_id = store_object(connection, row, 'signature_prepared', 'document',
+                entry['version'], prepared, {'mime_type': 'application/pdf'})
+            stamp = now()
+            expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+            connection.execute(insert(signature_sessions).values(
+                id=session_id, application_id=case_id, evidence_id=evidence_id,
+                signer_id=account['id'], signing_key_id=key['id'],
+                case_version=row['version'], prepared_object_id=object_id,
+                signed_attrs=signed_attrs, byte_range=json.dumps(byte_range),
+                digest=digest.hex(), created_at=stamp, expires_at=expiry))
+            add_security_event(connection, 'SIGN_PREPARED', account, case_id, evidence_id=evidence_id)
+        return {'session_id': session_id,
+                'signed_attrs_der': base64.b64encode(signed_attrs).decode('ascii'),
+                'digest': digest.hex(), 'byte_range': byte_range,
+                'key_fingerprint': key['fingerprint'], 'expires_at': expiry}
+
+    def session_for(connection, session_id, account, *, lock=False):
+        query = select(signature_sessions).where(signature_sessions.c.id == session_id)
+        if lock:
+            query = query.with_for_update()
+        session = connection.execute(query).mappings().first()
+        if session is None or session['signer_id'] != account['id']:
+            raise ApiFailure(404, 'RESOURCE_NOT_FOUND', 'Sesi tanda tangan tidak ditemukan.')
+        if session['used_at'] or session['expires_at'] <= now() or not session['prepared_object_id']:
+            raise ApiFailure(409, 'SIGNATURE_SESSION_EXPIRED', 'Sesi tanda tangan sudah dipakai atau kedaluwarsa.')
+        return session
+
+    def discard_expired_session(session_id, account):
+        with engine.begin() as connection:
+            old = connection.execute(select(signature_sessions).where(
+                signature_sessions.c.id == session_id,
+                signature_sessions.c.signer_id == account['id'],
+                signature_sessions.c.expires_at <= now()).with_for_update()).mappings().first()
+            if old and old['prepared_object_id']:
+                connection.execute(update(signature_sessions).where(
+                    signature_sessions.c.id == session_id).values(
+                    used_at=now(), prepared_object_id=None))
+                connection.execute(delete(objects).where(objects.c.id == old['prepared_object_id']))
+
+    @app.get(PREFIX + '/signature-sessions/{session_id}/preview')
+    def preview_signature(session_id: str, account=Depends(user)):
+        role(account, 'applicant')
+        discard_expired_session(session_id, account)
+        with engine.connect() as connection:
+            session = session_for(connection, session_id, account)
+            row = case(connection, session['application_id'], account, owner=True)
+            entry = connection.execute(select(evidence).where(evidence.c.id == session['evidence_id'])).mappings().one()
+            _, data = open_object(connection, session['prepared_object_id'], row,
+                kind='signature_prepared', category='document', version=entry['version'])
+        return Response(data, media_type='application/pdf', headers={'Cache-Control': 'no-store'})
+
+    @app.post(PREFIX + '/signature-sessions/{session_id}/complete')
+    def complete_signature(session_id: str, body: CompleteSignature, account=Depends(user)):
+        role(account, 'applicant')
+        rate_limit('sign_complete', account['id'], 10, 600)
+        discard_expired_session(session_id, account)
+        cms, pdf_signing, _, signature_rsa = signature_modules()
+        try:
+            raw_signature = base64.b64decode(body.signature, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ApiFailure(422, 'INVALID_SIGNATURE', 'Format tanda tangan tidak valid.') from exc
+        with engine.begin() as connection:
+            session = session_for(connection, session_id, account, lock=True)
+            row = case(connection, session['application_id'], account, owner=True, lock=True)
+            if row['version'] != session['case_version'] or row['status'] not in EDITABLE:
+                raise ApiFailure(409, 'VERSION_CONFLICT', 'Pengajuan berubah sejak sesi dibuat.')
+            key = active_signing_key(connection, account['id'])
+            if key is None or key['id'] != session['signing_key_id']:
+                raise ApiFailure(409, 'KEY_REVOKED', 'Kunci tanda tangan sudah diganti atau dicabut.')
+            entry = connection.execute(select(evidence).where(evidence.c.id == session['evidence_id'],
+                evidence.c.application_id == row['id'])).mappings().one()
+            if current_evidence(connection, row['id']).get('account_opening_form', {}).get('id') != entry['id']:
+                raise ApiFailure(409, 'VERSION_CONFLICT', 'Formulir terbaru sudah berubah.')
+            if connection.execute(select(document_signatures.c.id).where(
+                    document_signatures.c.evidence_id == entry['id']).limit(1)).first():
+                raise ApiFailure(409, 'ALREADY_SIGNED', 'Formulir ini sudah ditandatangani.')
+            _, prepared = open_object(connection, session['prepared_object_id'], row,
+                kind='signature_prepared', category='document', version=entry['version'])
+            if not signature_rsa.verify_pkcs1_v15(key['public_key_pem'],
+                    hashlib.sha256(session['signed_attrs']).digest(), raw_signature):
+                raise ApiFailure(422, 'INVALID_SIGNATURE', 'Tanda tangan tidak cocok dengan kunci terdaftar.')
+            authority = connection.execute(select(pki_authority.c.certificate_der).limit(1)).scalar_one()
+            cms_der = cms.build_signed_data(session['signed_attrs'], raw_signature,
+                                            [key['certificate_der'], authority])
+            signed_pdf = pdf_signing.embed_cms(prepared, cms_der)
+            result = signature_result(signed_pdf, authority, expected_owner=account['id'],
+                                      signing_key=key, signed_at=now())
+            if result['status'] != 'VALID':
+                raise ApiFailure(422, 'INVALID_SIGNATURE', 'PDF bertanda tangan gagal verifikasi.')
+            object_id = store_object(connection, row, 'signed_pdf', 'document', entry['version'],
+                signed_pdf, {'mime_type': 'application/pdf'})
+            sig_id, stamp = uid(), now()
+            connection.execute(insert(document_signatures).values(
+                id=sig_id, application_id=row['id'], evidence_id=entry['id'],
+                signer_id=account['id'], signing_key_id=key['id'],
+                signed_object_id=object_id, signed_sha256=hashlib.sha256(signed_pdf).hexdigest(),
+                signed_at=stamp, last_status='VALID', last_verified_at=stamp))
+            connection.execute(update(signature_sessions).where(
+                signature_sessions.c.id == session_id).values(used_at=stamp, prepared_object_id=None))
+            connection.execute(delete(objects).where(objects.c.id == session['prepared_object_id']))
+            add_security_event(connection, 'SIGN_COMPLETED', account, row['id'], evidence_id=entry['id'])
+        return {'signature_id': sig_id, 'status': 'VALID'}
+
+    @app.get(PREFIX + '/applications/{case_id}/signatures')
+    def list_signatures(case_id: str, account=Depends(user)):
+        with engine.connect() as connection:
+            case(connection, case_id, account)
+            rows = connection.execute(select(document_signatures, user_signing_keys.c.fingerprint,
+                users.c.display_name).join(user_signing_keys,
+                document_signatures.c.signing_key_id == user_signing_keys.c.id).join(users,
+                document_signatures.c.signer_id == users.c.id).where(
+                document_signatures.c.application_id == case_id).order_by(
+                document_signatures.c.signed_at.desc())).mappings().all()
+        return {'items': [{'id': row['id'], 'evidence_id': row['evidence_id'],
+            'signer': row['display_name'], 'fingerprint': row['fingerprint'],
+            'signed_at': row['signed_at'], 'status': row['last_status'],
+            'last_verified_at': row['last_verified_at']} for row in rows]}
+
+    def load_signed(connection, case_id, sig_id, account, *, reviewer=False):
+        row = case(connection, case_id, account, owner=not reviewer)
+        if reviewer and account['role'] != 'reviewer':
+            raise ApiFailure(403, 'ROLE_FORBIDDEN', 'Hanya reviewer yang ditugaskan dapat melihat pratinjau.')
+        record = signed_record(connection, case_id, sig_id)
+        entry = connection.execute(select(evidence).where(evidence.c.id == record['evidence_id'])).mappings().one()
+        _, data = open_object(connection, record['signed_object_id'], row,
+            kind='signed_pdf', category='document', version=entry['version'])
+        return row, record, data
+
+    @app.post(PREFIX + '/applications/{case_id}/signatures/{sig_id}/verify')
+    def verify_stored_signature(case_id: str, sig_id: str, account=Depends(user)):
+        rate_limit('sig_verify_stored', account['id'], 30, 60)
+        with engine.begin() as connection:
+            row, record, data = load_signed(connection, case_id, sig_id, account,
+                                            reviewer=account['role'] == 'reviewer')
+            key = connection.execute(select(user_signing_keys).where(
+                user_signing_keys.c.id == record['signing_key_id'])).mappings().one()
+            ca_der = connection.execute(select(pki_authority.c.certificate_der).limit(1)).scalar_one()
+            result = signature_result(data, ca_der, expected_owner=row['owner_id'],
+                signing_key=key, signed_at=record['signed_at'])
+            stamp = now()
+            connection.execute(update(document_signatures).where(
+                document_signatures.c.id == sig_id).values(last_status=result['status'],
+                                                         last_verified_at=stamp))
+            add_security_event(connection, 'SIG_VERIFIED' if result['status'] == 'VALID' else 'SIG_VERIFY_FAILED',
+                account, case_id, evidence_id=record['evidence_id'],
+                outcome='success' if result['status'] == 'VALID' else 'failed')
+        return result
+
+    @app.get(PREFIX + '/applications/{case_id}/signatures/{sig_id}/download')
+    def download_signed_signature(case_id: str, sig_id: str, account=Depends(user)):
+        role(account, 'applicant')
+        with engine.connect() as connection:
+            _, _, data = load_signed(connection, case_id, sig_id, account)
+        return attachment(data, 'veltrix-signed-form.pdf', 'application/pdf')
+
+    @app.get(PREFIX + '/applications/{case_id}/signatures/{sig_id}/review-preview')
+    def preview_signed_for_reviewer(case_id: str, sig_id: str, account=Depends(user)):
+        role(account, 'reviewer')
+        with engine.connect() as connection:
+            _, _, data = load_signed(connection, case_id, sig_id, account, reviewer=True)
+        return Response(data, media_type='application/pdf',
+                        headers={'Cache-Control': 'no-store', 'Content-Disposition': 'inline'})
+
+    @app.post(PREFIX + '/signatures/verify', openapi_extra={
+        'requestBody': {'required': True, 'content': {'multipart/form-data': {'schema': {
+            'type': 'object', 'required': ['file'], 'properties': {
+            'file': {'type': 'string', 'format': 'binary'}}}}}}})
+    async def verify_uploaded_signature(request: Request, account=Depends(user)):
+        rate_limit('sig_verify_upload', account['id'], 20, 60)
+        async with request.form(max_files=1, max_fields=0) as form:
+            if set(form) != {'file'} or not isinstance(form['file'], UploadFile):
+                raise ApiFailure(422, 'INVALID_UPLOAD', 'Unggah tepat satu berkas PDF.')
+            data = await form['file'].read(10_000_001)
+        if len(data) > 10_000_000:
+            raise ApiFailure(413, 'FILE_TOO_LARGE', 'PDF maksimum 10 MB.')
+        with engine.connect() as connection:
+            ca_der = connection.execute(select(pki_authority.c.certificate_der).limit(1)).scalar_one_or_none()
+        if ca_der is None:
+            raise ApiFailure(503, 'CA_UNAVAILABLE', 'Sertifikat CA belum tersedia.')
+        result = signature_result(data, ca_der)
+        audit('SIG_VERIFIED' if result['status'] == 'VALID' else 'SIG_VERIFY_FAILED',
+              account['id'], outcome='success' if result['status'] == 'VALID' else 'failed')
+        return result
 
     def share_event(connection, name, account, request_id, outcome='success'):
         connection.execute(insert(security_log).values(
@@ -908,6 +1303,16 @@ def create_app(settings: Settings):
                     if entry is None:
                         raise ApiFailure(422, 'ITEM_UNAVAILABLE', 'Dokumen yang dipilih tidak tersedia.')
                     data, mime = open_evidence(connection, application, entry), entry['mime_type']
+                    if kind == 'document':
+                        signed = connection.execute(select(document_signatures).where(
+                            document_signatures.c.application_id == application['id'],
+                            document_signatures.c.evidence_id == entry['id'],
+                            document_signatures.c.last_status == 'VALID').order_by(
+                            document_signatures.c.signed_at.desc()).limit(1)).mappings().first()
+                        if signed:
+                            _, data = open_object(connection, signed['signed_object_id'], application,
+                                kind='signed_pdf', category='document', version=entry['version'])
+                            mime = 'application/pdf'
                 payloads.append((kind, mime, data))
             share_key = secrets.token_bytes(32)
             wrapped, nonce, tag = wrap_key(settings.kek, row['id'], row['owner_id'], row['requester_id'], share_key)

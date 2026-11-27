@@ -86,6 +86,16 @@ ShareKind = Literal['profile', 'identity', 'document', 'video', 'kk']
 class PublicKeyRegistration(Model):
     public_key_pem: str = Field(min_length=200, max_length=2000)
 
+
+class SigningKeyRegistration(Model):
+    public_key_pem: str = Field(min_length=500, max_length=4000)
+    challenge_id: str = Field(min_length=36, max_length=36)
+    pop_signature: str = Field(min_length=500, max_length=1000)
+
+
+class CompleteSignature(Model):
+    signature: str = Field(min_length=500, max_length=1000)
+
 class ShareRequestCreate(Model):
     owner_username: str = Field(pattern=r'^[a-zA-Z0-9_]{3,24}$')
     purpose: str = Field(min_length=10, max_length=200)
