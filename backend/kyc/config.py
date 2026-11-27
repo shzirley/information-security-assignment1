@@ -17,6 +17,7 @@ class Settings:
     session_seconds: int = 28800
     max_request_bytes: int = 34 * 1024**2
     ffprobe: str = 'ffprobe'
+    require_signed_form: bool = False
 
     def __post_init__(self):
         if len(self.kek) != 32 or len(self.auth_secret) != 32 or self.kek == self.auth_secret:
@@ -38,4 +39,5 @@ class Settings:
             key('VELTRIX_KEK_V1_BASE64'), key('VELTRIX_AUTH_SECRET_BASE64'),
             os.getenv('COOKIE_SECURE', 'false').lower() == 'true',
             tuple(x.strip() for x in os.getenv('ALLOWED_ORIGINS', 'http://127.0.0.1:3000,http://localhost:3000').split(',')),
-            ffprobe=os.getenv('FFPROBE_PATH', 'ffprobe'))
+            ffprobe=os.getenv('FFPROBE_PATH', 'ffprobe'),
+            require_signed_form=os.getenv('VELTRIX_REQUIRE_SIGNED_FORM', 'false').lower() == 'true')
