@@ -23,6 +23,7 @@ import { kycApi } from '@/lib/kyc-api';
 import type { ShareItem, ShareRequest } from '@/lib/kyc';
 import { decryptSharePackage, generateRsaKeyPair } from '@/lib/sharing-crypto';
 import { Button, EmptyState, ErrorState, LoadingState, Modal, PageHeading } from '@/components/ui';
+import { SigningKeyPanel } from './signing';
 
 const SHAREABLE_ITEMS: Array<{ id: ShareItem['kind']; label: string; desc: string }> = [
   { id: 'profile', label: 'Profil Pribadi (JSON)', desc: 'Nama, NIK dummy, tanggal lahir, alamat' },
@@ -473,6 +474,7 @@ export function SharingWorkspace() {
               <RefreshCw size={16} aria-hidden="true" />{serverKey ? 'Ganti kunci' : 'Buat kunci'}
             </Button>
           </section>
+          <SigningKeyPanel />
           <section className="scope-card">
             <ShieldCheck size={24} aria-hidden="true" />
             <h3>Cara kerjanya</h3>

@@ -121,3 +121,33 @@ export interface PublicKeyInfo {
   created_at: string;
 }
 
+// Assignment 3: digital signatures on the account-opening form PDF.
+export interface SigningKeyInfo {
+  id: string; fingerprint: string; cert_serial: string; expires_at: string; created_at: string;
+  revoked_at: string | null; revoke_reason: string | null; certificate_pem?: string;
+}
+export interface SigningKeyState { active: SigningKeyInfo | null; history: SigningKeyInfo[] }
+export interface SigningChallenge { challenge_id: string; challenge: string; user_id: string; expires_at: string }
+export interface SignaturePrepare {
+  session_id: string; signed_attrs_der: string; digest: string;
+  byte_range: [number, number, number, number]; key_fingerprint: string; expires_at: string;
+}
+export type SignatureStatus = 'VALID' | 'VALID_UNTRUSTED' | 'INVALID' | 'MODIFIED_AFTER_SIGNING' | 'KEY_REVOKED' | 'SIGNER_MISMATCH' | 'NOT_SIGNED' | 'MALFORMED';
+export interface DocumentSignature {
+  id: string; evidence_id: string; signer: string; fingerprint: string;
+  signed_at: string; status: SignatureStatus; last_verified_at: string | null;
+}
+export interface SignatureVerification {
+  status: SignatureStatus; reasons: string[]; signer: string | null; fingerprint: string | null; signed_at: string | null;
+}
+export const signatureStatus: Record<SignatureStatus, { label: string; tone: string; meaning: string }> = {
+  VALID: { label: 'Valid', tone: 'status-ACCEPTED_DEMO', meaning: 'Dokumen tidak berubah sejak ditandatangani dengan kunci yang terdaftar.' },
+  VALID_UNTRUSTED: { label: 'Valid, tidak dikenal', tone: 'status-NEEDS_REVISION', meaning: 'Tanda tangan cocok secara matematis, tetapi sertifikatnya bukan dari VELTRIX atau tidak dikenal.' },
+  INVALID: { label: 'Tidak valid', tone: 'status-REJECTED_DEMO', meaning: 'Isi dokumen atau tanda tangannya telah berubah.' },
+  MODIFIED_AFTER_SIGNING: { label: 'Diubah setelah ditandatangani', tone: 'status-REJECTED_DEMO', meaning: 'Bagian yang ditandatangani utuh, tetapi ada tambahan setelah penandatanganan.' },
+  KEY_REVOKED: { label: 'Kunci dicabut', tone: 'status-REJECTED_DEMO', meaning: 'Kunci sudah dicabut saat dokumen ditandatangani.' },
+  SIGNER_MISMATCH: { label: 'Penandatangan tidak cocok', tone: 'status-REJECTED_DEMO', meaning: 'Kunci penandatangan bukan milik pemohon pemilik dokumen.' },
+  NOT_SIGNED: { label: 'Belum ditandatangani', tone: '', meaning: 'PDF ini tidak memiliki tanda tangan digital.' },
+  MALFORMED: { label: 'Rusak', tone: 'status-REJECTED_DEMO', meaning: 'Struktur PDF atau tanda tangan tidak dapat dibaca dengan aman.' },
+};
+

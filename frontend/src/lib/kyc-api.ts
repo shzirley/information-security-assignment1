@@ -1,5 +1,5 @@
 import { call } from './api';
-import type { ApplicantProfile, Application, AssignmentList, CaseAction, CaseList, EvidenceCategory, LabRun, ProfileResponse, DocumentType, EvidenceCheck, ReviewChecksResponse, ReviewerProfile, DocumentAnalysis, PublicKeyInfo, ShareItem, ShareRequest } from './kyc';
+import type { ApplicantProfile, Application, AssignmentList, CaseAction, CaseList, EvidenceCategory, LabRun, ProfileResponse, DocumentType, EvidenceCheck, ReviewChecksResponse, ReviewerProfile, DocumentAnalysis, PublicKeyInfo, ShareItem, ShareRequest, SigningKeyState, SigningChallenge, SigningKeyInfo, SignaturePrepare, SignatureStatus, DocumentSignature, SignatureVerification } from './kyc';
 
 const json = (value: unknown) => JSON.stringify(value);
 const path = (id: string) => `/applications/${encodeURIComponent(id)}`;
@@ -65,4 +65,24 @@ export const kycApi = {
       method: 'POST',
       body: json({ share_key }),
     }),
+  // Assignment 3: digital signatures
+  signingKey: () => call<SigningKeyState>('/signing-keys/me'),
+  signingChallenge: () => call<SigningChallenge>('/signing-keys/challenge', { method: 'POST' }),
+  registerSigningKey: (public_key_pem: string, challenge_id: string, pop_signature: string) =>
+    call<SigningKeyInfo>('/signing-keys/me', { method: 'PUT', body: json({ public_key_pem, challenge_id, pop_signature }) }),
+  caCertificate: () => call<Blob>('/pki/ca.pem'),
+  prepareSignature: (id: string, evidenceId: string) =>
+    call<SignaturePrepare>(`${evidencePath(id, evidenceId)}/signatures/prepare`, { method: 'POST' }),
+  signaturePreview: (sessionId: string) => call<Blob>(`/signature-sessions/${encodeURIComponent(sessionId)}/preview`),
+  completeSignature: (sessionId: string, signature: string) =>
+    call<{ signature_id: string; status: SignatureStatus }>(`/signature-sessions/${encodeURIComponent(sessionId)}/complete`, { method: 'POST', body: json({ signature }) }),
+  signatures: (id: string) => call<{ items: DocumentSignature[] }>(`${path(id)}/signatures`),
+  verifySignature: (id: string, sigId: string) =>
+    call<SignatureVerification>(`${path(id)}/signatures/${encodeURIComponent(sigId)}/verify`, { method: 'POST' }),
+  downloadSigned: (id: string, sigId: string) => call<Blob>(`${path(id)}/signatures/${encodeURIComponent(sigId)}/download`),
+  reviewSignedPreview: (id: string, sigId: string) => call<Blob>(`${path(id)}/signatures/${encodeURIComponent(sigId)}/review-preview`),
+  verifyPdf: (file: File) => {
+    const body = new FormData(); body.append('file', file);
+    return call<SignatureVerification>('/signatures/verify', { method: 'POST', body });
+  },
 };
