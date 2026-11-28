@@ -16,6 +16,12 @@ Integrasi dengan modul Maleka/Jorell menggunakan fungsi berikut. Modul yang belu
 | `kyc.signature_rsa` | `verify_pkcs1_v15(public_key_pem, sha256_signed_attrs_bytes, signature_bytes) -> bool` |
 | `kyc.pdf_verify` | `verify_pdf(pdf_bytes, ca_der) -> {status, reasons, signer, fingerprint, signed_at}`. Must enforce all checks in implementation plan §1.7, including exact ByteRange coverage and one signature. |
 
+**Yang dikirim frontend** (`frontend/src/lib/signing-crypto.ts`, dites terhadap OpenSSL dengan `npm run test:signing`). Kedua tanda tangan memakai RSASSA-PKCS1-v1_5 dengan SHA-256 dan kunci RSA-3072 (e = 65537):
+
+- `pop_signature` = tanda tangan atas `SHA-256(canonical({"challenge": <string base64 persis dari server>, "spki_sha256": <hex huruf kecil SHA-256 dari SPKI DER>, "user_id": <user_id dari challenge>}))`, dengan `canonical` = `kyc.crypto.canonical` (kunci terurut, tanpa spasi).
+- `signature` pada `complete` = tanda tangan atas `SHA-256(signed_attrs_der)`, yaitu byte bertag `0x31` dari `prepare`, sesuai pemanggilan `verify_pkcs1_v15` di atas.
+- Sebelum menandatangani, browser menghitung ulang SHA-256 `byte_range` dari `preview` dan menolak bila tidak sama dengan `digest` maupun atribut `messageDigest` di `signed_attrs_der`.
+
 Pembuatan CA hanya saat `manage.py migrate`, bukan saat request/startup. Bila modul PKI digabung setelah migrasi sudah dijalankan, jalankan `manage.py migrate` sekali lagi untuk membuat CA. `VELTRIX_REQUIRE_SIGNED_FORM=true` mewajibkan formulir terbaru berstatus `VALID` pada submit/resubmit. Nilai default `false` menjaga tes Assignment 1/2; contoh `.env.example` memakai `true`. Berbagi Assignment 2 untuk item `document` mengambil signed PDF terbaru yang valid bila ada.
 
 API FastAPI yang sesuai dengan `frontend/src/lib/kyc-api.ts`. Database permanen SQLite untuk startup lokal, MySQL melalui `mysql+pymysql` untuk deployment terpisah. Alur vault lama berada di `app/main.py` sebagai referensi; entry point `app.server:app` sekarang menggunakan `kyc/main.py`.
