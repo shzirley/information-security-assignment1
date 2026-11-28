@@ -16,6 +16,8 @@ Integrasi dengan modul Maleka/Jorell menggunakan fungsi berikut. Modul yang belu
 | `kyc.signature_rsa` | `verify_pkcs1_v15(public_key_pem, sha256_signed_attrs_bytes, signature_bytes) -> bool` |
 | `kyc.pdf_verify` | `verify_pdf(pdf_bytes, ca_der) -> {status, reasons, signer, fingerprint, signed_at}`. Must enforce all checks in implementation plan §1.7, including exact ByteRange coverage and one signature. |
 
+**Modul kriptografi (Maleka) sudah digabung:** `kyc.signature_rsa`, `kyc.cms`, dan `kyc.pki`. Untuk `kyc.pdf_verify.verify_pdf`, langkah 5–9 §1.7 sudah tersedia sebagai `kyc.cms.parse_and_verify(cms_der, sha256_byte_range_digest, ca_der) -> {status, reasons, signer, fingerprint, signed_at}`; `pdf_verify` cukup menjalankan langkah 1–4 (struktur PDF, satu `/Sig`, ByteRange menutup seluruh berkas) lalu memanggil fungsi ini. `kyc.pki.verify_chain(cert_der, ca_der)` memeriksa rantai sertifikat. Dependensi baru: `asn1crypto` (encode/decode DER) dan `cryptography` (hanya pembuatan kunci CA). Desain dan alasannya: [ADR tanda tangan digital](../docs/decisions/ADR_DIGITAL_SIGNATURE.md).
+
 **Yang dikirim frontend** (`frontend/src/lib/signing-crypto.ts`, dites terhadap OpenSSL dengan `npm run test:signing`). Kedua tanda tangan memakai RSASSA-PKCS1-v1_5 dengan SHA-256 dan kunci RSA-3072 (e = 65537):
 
 - `pop_signature` = tanda tangan atas `SHA-256(canonical({"challenge": <string base64 persis dari server>, "spki_sha256": <hex huruf kecil SHA-256 dari SPKI DER>, "user_id": <user_id dari challenge>}))`, dengan `canonical` = `kyc.crypto.canonical` (kunci terurut, tanpa spasi).
