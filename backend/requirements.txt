@@ -4,6 +4,8 @@ uvicorn[standard]==0.54.0
 SQLAlchemy==2.1.6
 PyMySQL==1.2.3
 pycryptodome==3.24.1
+cryptography==50.0.2
+asn1crypto==1.5.1
 argon2-cffi==25.1.0
 python-multipart==0.0.32
 python-dotenv==1.2.4
